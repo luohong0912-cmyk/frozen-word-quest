@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stage 1 — Listen & Pick</title>
+<link rel="stylesheet" href="../shared/frozen-theme.css">
+<style>
+  .container { max-width: 700px; margin: 0 auto; padding: 0 16px 40px; position: relative; z-index: 1; }
+
+  .stage-nav {
+    display: flex; justify-content: center; gap: 8px; padding: 12px; flex-wrap: wrap;
+  }
+  .stage-nav a {
+    text-decoration: none; padding: 6px 14px; border-radius: 20px;
+    font-size: 0.8rem; font-weight: 600;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.6);
+    color: var(--text-light);
+  }
+  .stage-nav a.active {
+    background: linear-gradient(135deg, var(--ice-blue), var(--ice-light));
+    color: var(--deep-blue); border-color: white;
+  }
+  .stage-nav a.done { background: var(--correct-green); color: white; border-color: white; }
+
+  /* Game card */
+  .game-card {
+    text-align: center; padding: 20px 16px; margin-top: 8px;
+    min-height: 360px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px;
+  }
+
+  /* Emoji */
+  .scene-emoji {
+    font-size: 60px;
+    animation: floatEmoji 2s ease-in-out infinite;
+  }
+  @keyframes floatEmoji {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  /* Sentence display */
+  .sentence-box {
+    background: white; border-radius: var(--radius);
+    padding: 16px 20px; max-width: 520px; margin: 0 auto;
+    font-size: 1.2rem; line-height: 1.8; color: var(--text-dark);
+    box-shadow: var(--shadow); border: 2px solid var(--ice-light);
+    position: relative;
+  }
+  .sentence-box .target-word {
+    color: var(--frost-purple); font-weight: 800;
+    background: rgba(147,112,219,0.12); padding: 2px 8px; border-radius: 6px;
+  }
+
+  /* Speaker button */
+  .speaker-wrap { text-align: center; }
+  .speaker-btn {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--ice-blue), white);
+    border: 3px solid white; box-shadow: var(--shadow-lg);
+    cursor: pointer; font-size: 2.2rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .speaker-btn:hover { transform: scale(1.08); }
+  .speaker-btn.playing {
+    border-color: var(--frost-purple);
+    background: var(--ice-pale);
+  }
+  .speaker-btn.done {
+    background: var(--correct-green); color: white;
+    pointer-events: none;
+  }
+  .speaker-hint {
+    font-size: 0.8rem; color: var(--text-light); margin-top: 4px;
+  }
+
+  /* Word choice grid */
+  .word-choices {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    max-width: 400px; margin: 0 auto;
+  }
+  .word-choice {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; background: white; border-radius: var(--radius);
+    box-shadow: var(--shadow); cursor: pointer;
+    border: 3px solid transparent; transition: all 0.15s;
+    font-size: 1.1rem; font-weight: 700; color: var(--deep-blue);
+    user-select: none;
+  }
+  .word-choice:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .word-choice .choice-num {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--ice-pale); color: var(--deep-blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem; font-weight: 800; flex-shrink: 0;
+  }
+  .word-choice.correct {
+    border-color: var(--correct-green); background: #E8F5E9;
+    animation: popIn 0.3s ease-out; pointer-events: none;
+  }
+  .word-choice.correct .choice-num { background: var(--correct-green); color: white; }
+  .word-choice.wrong {
+    border-color: var(--wrong-red); background: #FFEBEE;
+    animation: shake 0.4s ease;
+  }
+
+  /* Feedback */
+  .feedback-row {
+    min-height: 28px; font-size: 1rem; font-weight: 700;
+    transition: all 0.2s;
+  }
+  .feedback-row.good { color: var(--correct-green); }
+  .feedback-row.bad { color: var(--wrong-red); }
+
+  /* Progress dots */
+  .scene-dots {
+    display: flex; gap: 5px; justify-content: center;
+  }
+  .scene-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--frost-silver); transition: all 0.3s;
+  }
+  .scene-dot.current { background: var(--ice-blue); transform: scale(1.5); }
+  .scene-dot.visited { background: var(--frost-purple-light); }
+
+  /* Complete */
+  .complete-section {
+    text-align: center; padding: 24px; animation: popIn 0.5s ease-out;
+  }
+  .review-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px; margin-top: 12px;
+  }
+  .review-card {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; background: white; border-radius: var(--radius-sm);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
+  }
+  .review-card:hover { border-color: var(--ice-blue); transform: translateY(-2px); }
+  .review-card .rev-emoji { font-size: 1.5rem; }
+  .review-card .rev-word { font-weight: 700; font-size: 0.85rem; color: var(--deep-blue); }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="page-header">
+    <h1>❄️ Stage 1: Listen & Pick</h1>
+    <p class="subtitle">Listen to the sentence, then tap the right word!</p>
+  </div>
+
+  <div class="stage-nav" id="stageNav"></div>
+
+  <!-- Game Card -->
+  <div class="frost-card game-card" id="gameCard">
+    <!-- Emoji -->
+    <div class="scene-emoji" id="sceneEmoji">📖</div>
+
+    <!-- Sentence -->
+    <div class="sentence-box" id="sentenceBox"></div>
+
+    <!-- Speaker (click to play) -->
+    <div class="speaker-wrap">
+      <button class="speaker-btn" id="speakerBtn" onclick="playSentence()">🔊</button>
+      <div class="speaker-hint" id="speakerHint">👆 Tap to listen</div>
+    </div>
+
+    <!-- Feedback -->
+    <div class="feedback-row" id="feedbackRow"></div>
+
+    <!-- Word Choices -->
+    <div class="word-choices" id="wordChoices"></div>
+
+    <!-- Progress dots -->
+    <div class="scene-dots" id="sceneDots"></div>
+  </div>
+
+  <!-- Complete -->
+  <div id="completeSection" style="display:none;">
+    <div class="frost-card complete-section">
+      <h2>🌟 Story Complete!</h2>
+      <p style="color:var(--text-light);">Tap each word to hear it again</p>
+      <div class="review-grid" id="reviewGrid"></div>
+      <div style="margin-top:20px;">
+        <button class="ice-btn gold" onclick="goToNextStage()">⭐ Continue to Stage 2</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../data/words.js"></script>
+<script src="../shared/storage.js"></script>
+<script src="../shared/tts.js"></script>
+<script src="../shared/emoji-helper.js"></script>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const unitId = params.get('unit') || '1';
+const lessonId = params.get('lesson') || '1';
+const lessonData = WORD_DATA[unitId].lessons[lessonId];
+const scenes = lessonData.story.scenes;
+const allWords = lessonData.words;
+
+let currentScene = 0;
+let hasListened = false;
+let answered = false;
+
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildStageNav() {
+  const nav = document.getElementById('stageNav');
+  const stages = [
+    { id: 'story', name: '1. Story', file: '1-story.html' },
+    { id: 'listen', name: '2. Listen', file: '2-listen.html' },
+    { id: 'wordsearch', name: '3. Search', file: '3-wordsearch.html' },
+    { id: 'match', name: '4. Match', file: '4-match.html' },
+    { id: 'boss', name: '5. Boss', file: '5-boss.html' }
+  ];
+  const prog = Storage.getProgress(unitId, lessonId);
+  nav.innerHTML = stages.map(s => {
+    let cls = '';
+    if (s.id === 'story') cls = 'active';
+    if (prog[s.id] !== undefined) cls = 'done';
+    return `<a href="${s.file}?unit=${unitId}&lesson=${lessonId}" class="${cls}">${s.name}</a>`;
+  }).join('');
+}
+
+function renderScene() {
+  if (currentScene >= scenes.length) {
+    showComplete();
+    return;
+  }
+
+  const scene = scenes[currentScene];
+  hasListened = false;
+  answered = false;
+
+  // Emoji
+  document.getElementById('sceneEmoji').innerHTML = emojiHTML(scene.emoji);
+
+  // Sentence with highlighted target word
+  const sentenceBox = document.getElementById('sentenceBox');
+  const target = scene.word;
+  // Build highlighted sentence: wrap target word in <span>
+  const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(<b>)?${escapedTarget}(</b>)?`, 'gi');
+  const highlighted = scene.text.replace(regex, `<span class="target-word">${target}</span>`);
+  sentenceBox.innerHTML = highlighted;
+
+  // Reset speaker
+  const speakerBtn = document.getElementById('speakerBtn');
+  speakerBtn.className = 'speaker-btn';
+  speakerBtn.textContent = '🔊';
+  document.getElementById('speakerHint').textContent = '👆 Tap to listen';
+
+  // Reset feedback
+  const fb = document.getElementById('feedbackRow');
+  fb.textContent = '';
+  fb.className = 'feedback-row';
+
+  // Build word choices
+  const distractors = shuffleArray(allWords.filter(w => w.en !== target)).slice(0, 3);
+  const choices = shuffleArray([
+    { en: target, isTarget: true },
+    ...distractors.map(w => ({ en: w.en, isTarget: false }))
+  ]);
+  renderChoices(choices);
+
+  // Dots
+  updateDots();
+}
+
+function renderChoices(choices) {
+  const grid = document.getElementById('wordChoices');
+  // Hide choices until they've listened
+  grid.style.opacity = hasListened ? '1' : '0.4';
+  grid.style.pointerEvents = hasListened ? 'auto' : 'none';
+
+  grid.innerHTML = choices.map((c, i) => `
+    <div class="word-choice" data-target="${c.isTarget}" onclick="pickWord(this, '${c.en.replace(/'/g, "\\'")}', ${c.isTarget})">
+      <span class="choice-num">${i + 1}</span>
+      <span>${c.en}</span>
+    </div>
+  `).join('');
+}
+
+function enableChoices() {
+  const grid = document.getElementById('wordChoices');
+  grid.style.opacity = '1';
+  grid.style.pointerEvents = 'auto';
+}
+
+function updateDots() {
+  const dots = document.getElementById('sceneDots');
+  dots.innerHTML = scenes.map((_, i) => {
+    let cls = 'scene-dot';
+    if (i === currentScene) cls += ' current';
+    if (i < currentScene) cls += ' visited';
+    return `<span class="${cls}"></span>`;
+  }).join('');
+}
+
+// ========================================
+// Play sentence (click to play)
+// ========================================
+async function playSentence() {
+  if (hasListened) return; // Already played for this scene
+
+  const scene = scenes[currentScene];
+  const btn = document.getElementById('speakerBtn');
+  const hint = document.getElementById('speakerHint');
+
+  btn.classList.add('playing');
+  btn.textContent = '🔊';
+  hint.textContent = 'Playing...';
+
+  // Get plain text from HTML
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = scene.text;
+  const plainText = tempDiv.textContent;
+
+  // Speak with longer timeout to ensure complete playback
+  await TTS.speak(plainText);
+
+  btn.classList.remove('playing');
+  btn.classList.add('done');
+  btn.textContent = '✅';
+  hint.textContent = 'Now pick the word!';
+  hasListened = true;
+  enableChoices();
+}
+
+// ========================================
+// Pick the word
+// ========================================
+function pickWord(el, word, isTarget) {
+  if (!hasListened) return; // Must listen first
+  if (answered) return;
+
+  const fb = document.getElementById('feedbackRow');
+
+  if (isTarget) {
+    // Correct!
+    answered = true;
+    el.classList.add('correct');
+    fb.textContent = '✅ Perfect!';
+    fb.className = 'feedback-row good';
+
+    // Brief celebration then next scene
+    setTimeout(() => {
+      currentScene++;
+      renderScene();
+    }, 800);
+  } else {
+    // Wrong — show feedback, let them try again
+    el.classList.add('wrong');
+    fb.textContent = '❌ Not that one. Try again!';
+    fb.className = 'feedback-row bad';
+
+    setTimeout(() => {
+      el.classList.remove('wrong');
+      fb.textContent = '';
+      fb.className = 'feedback-row';
+    }, 800);
+  }
+}
+
+// ========================================
+// Complete
+// ========================================
+function showComplete() {
+  document.getElementById('gameCard').style.display = 'none';
+  document.getElementById('completeSection').style.display = 'block';
+
+  const grid = document.getElementById('reviewGrid');
+  grid.innerHTML = allWords.map(w => `
+    <div class="review-card" onclick="TTS.speakWord('${w.en.replace(/'/g, "\\'")}')">
+      <span class="rev-emoji">${emojiHTML(w.emoji)}</span>
+      <span class="rev-word">${w.en}</span>
+    </div>
+  `).join('');
+
+  const starsEarned = STAGE_STARS.story;
+  Storage.completeStage(unitId, lessonId, 'story', starsEarned);
+  buildStageNav();
+
+  const el = document.createElement('div');
+  el.textContent = '⭐'.repeat(Math.min(starsEarned, 5));
+  el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3rem;z-index:2000;pointer-events:none;animation:starUp 1.5s ease-out forwards;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+function goToNextStage() {
+  window.location.href = `2-listen.html?unit=${unitId}&lesson=${lessonId}`;
+}
+
+// Init
+buildStageNav();
+renderScene();
+</script>
+
+</body>
+</html>

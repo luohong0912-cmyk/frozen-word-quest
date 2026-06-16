@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Review — Flashcard</title>
+<link rel="stylesheet" href="../shared/frozen-theme.css">
+<style>
+  .container { max-width: 700px; margin: 0 auto; padding: 0 16px 40px; position: relative; z-index: 1; }
+  .stage-nav { display: flex; justify-content: center; gap: 8px; padding: 12px; flex-wrap: wrap; }
+  .stage-nav a { text-decoration: none; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.6); color: var(--text-light); }
+  .stage-nav a.active { background: linear-gradient(135deg, var(--ice-blue), var(--ice-light)); color: var(--deep-blue); border-color: white; }
+  .stage-nav a.done { background: var(--correct-green); color: white; border-color: white; }
+
+  .flashcard-area { text-align: center; padding: 24px 20px; margin-top: 8px; min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+  .flashcard-card { width: 240px; padding: 24px 16px; background: white; border-radius: var(--radius); box-shadow: var(--shadow-lg); border: 3px solid var(--ice-light); display: flex; flex-direction: column; align-items: center; gap: 10px; transition: all 0.3s; }
+  .flashcard-emoji { font-size: 4.5rem; line-height: 1; }
+  .flashcard-word { font-size: 2rem; font-weight: 800; color: var(--deep-blue); letter-spacing: 2px; }
+
+  .flashcard-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .flashcard-counter { font-size: 0.9rem; color: var(--text-light); font-weight: 600; min-width: 60px; text-align: center; }
+
+  .speed-btns { display: flex; gap: 4px; }
+  .speed-btn { padding: 4px 12px; border-radius: 12px; border: 1.5px solid var(--frost-silver); background: white; cursor: pointer; font-size: 0.75rem; font-weight: 600; transition: all 0.15s; }
+  .speed-btn.active { background: var(--ice-blue); border-color: var(--ice-blue); color: white; }
+
+  .complete-section { text-align: center; padding: 30px; animation: popIn 0.5s ease-out; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="page-header"><h1>⚡ Flashcard Review</h1><p class="subtitle">Auto-play — watch, listen, and learn!</p></div>
+  <div class="stage-nav" id="stageNav"></div>
+
+  <!-- Start overlay -->
+  <div id="startOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3);z-index:100;display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="startWithGesture()">
+    <div class="frost-card" style="text-align:center;padding:32px 40px;">
+      <div style="font-size:4rem;">⚡</div>
+      <h2 style="color:var(--deep-blue);">Flashcard Review</h2>
+      <p style="color:var(--text-light);">39 words · Auto-play</p>
+      <button class="ice-btn gold" style="margin-top:12px;">👆 Tap to Start</button>
+    </div>
+  </div>
+
+  <div id="gameArea">
+    <div class="frost-card flashcard-area">
+      <div class="flashcard-card" id="flashcardCard">
+        <div class="flashcard-emoji" id="cardEmoji"></div>
+        <div class="flashcard-word" id="cardWord"></div>
+      </div>
+      <div class="flashcard-controls">
+        <button class="ice-btn" onclick="prevCard()" style="font-size:0.85rem;padding:8px 16px;">◀</button>
+        <button class="ice-btn" id="playPauseBtn" onclick="togglePlay()" style="font-size:0.85rem;padding:8px 20px;">⏸️ Pause</button>
+        <button class="ice-btn" onclick="nextCard()" style="font-size:0.85rem;padding:8px 16px;">▶</button>
+      </div>
+      <div class="flashcard-counter" id="cardCounter">1/0</div>
+      <div class="speed-btns">
+        <span style="font-size:0.7rem;color:var(--text-light);">Speed:</span>
+        <button class="speed-btn active" onclick="setSpeed(2000)">Fast</button>
+        <button class="speed-btn" onclick="setSpeed(2200)">Normal</button>
+        <button class="speed-btn" onclick="setSpeed(3500)">Slow</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="completeSection" style="display:none;"><div class="frost-card complete-section"><h2>🌟 Great Review!</h2><p>All 39 words reviewed!</p><div style="margin-top:20px;"><a class="ice-btn gold" href="2-listen.html?unit=2&lesson=review">⭐ Continue to Stage 2</a></div></div></div>
+</div>
+
+<script src="../data/words.js"></script>
+<script src="../shared/storage.js"></script>
+<script src="../shared/tts.js"></script>
+<script src="../shared/emoji-helper.js"></script>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const unitId = params.get('unit') || '2';
+const unitData = WORD_DATA[unitId];
+let allWords = [];
+const seenF = new Set();
+for (const [lid, ldata] of Object.entries(unitData.lessons)) {
+  if (lid !== 'review' && ldata.words) {
+    ldata.words.forEach(w => {
+      if (!seenF.has(w.en.toLowerCase())) { seenF.add(w.en.toLowerCase()); allWords.push(w); }
+    });
+  }
+}
+
+let currentIdx = 0;
+let isPlaying = true;
+let speed = 2000;
+let timer = null;
+let hasUserGesture = false;
+
+function startWithGesture() {
+  if (hasUserGesture) return;
+  hasUserGesture = true;
+  document.getElementById('startOverlay').style.display = 'none';
+  // Speak first word to unlock Chrome's speech API
+  const w = allWords[0];
+  if (w) { const s = window.speechSynthesis; s.cancel(); const u = new SpeechSynthesisUtterance(w.en); u.volume = 0; u.rate = 2; s.speak(u); }
+  showCard();
+  resetTimer();
+}
+
+function buildStageNav() {
+  const nav = document.getElementById('stageNav');
+  const stages = [
+    { id: 'flashcard', name: '1. Flash', file: '1-flashcard.html' },
+    { id: 'review-listen', name: '2. Listen', file: '2-listen.html' },
+    { id: 'review-spell', name: '3. Spell', file: '3-spell.html' },
+    { id: 'review-match', name: '4. Match', file: '4-match.html' },
+    { id: 'review-boss', name: '5. Boss', file: '5-boss.html' }
+  ];
+  nav.innerHTML = stages.map(s => {
+    let cls = s.id === 'flashcard' ? 'active' : '';
+    return `<a href="${s.file}?unit=${unitId}&lesson=review" class="${cls}">${s.name}</a>`;
+  }).join('');
+}
+
+let speechQueue = [];
+let isSpeaking = false;
+
+function showCard() {
+  if (currentIdx >= allWords.length) {
+    stopTimer();
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('completeSection').style.display = 'block';
+    Storage.completeStage(unitId, 'review', 'story', STAGE_STARS.story);
+    buildStageNav();
+    return;
+  }
+  const w = allWords[currentIdx];
+  document.getElementById('cardEmoji').innerHTML = emojiHTML(w.emoji);
+  document.getElementById('cardWord').textContent = w.en;
+  document.getElementById('cardCounter').textContent = (currentIdx+1) + '/' + allWords.length;
+
+  // Speak immediately — fire and forget, Chrome handles the queue
+  speakFlash(w.en);
+}
+
+// Preload voices on page load
+let voicesReady = false;
+window.speechSynthesis.onvoiceschanged = () => { voicesReady = true; };
+window.speechSynthesis.getVoices();
+
+function speakFlash(word) {
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+
+  // Cancel any previous speech
+  synth.cancel();
+
+  const utter = new SpeechSynthesisUtterance(word);
+  utter.lang = 'en-US';
+  utter.rate = 0.85;
+  utter.pitch = 1.1;
+  utter.volume = 1.0;
+
+  // Use a US English voice if available
+  const voices = synth.getVoices();
+  const enVoice = voices.find(v => v.lang.startsWith('en-US'));
+  if (enVoice) utter.voice = enVoice;
+
+  synth.speak(utter);
+}
+
+function nextCard() {
+  if (currentIdx < allWords.length - 1) { currentIdx++; showCard(); resetTimer(); }
+  else { currentIdx = allWords.length; showCard(); }
+}
+function prevCard() { stopTimer(); if (currentIdx > 0) { currentIdx--; showCard(); } }
+
+function togglePlay() {
+  isPlaying = !isPlaying;
+  document.getElementById('playPauseBtn').textContent = isPlaying ? '⏸️ Pause' : '▶ Play';
+  if (isPlaying) resetTimer(); else stopTimer();
+}
+
+function setSpeed(ms) {
+  speed = ms;
+  document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.speed-btn[onclick="setSpeed(${ms})"]`).classList.add('active');
+  if (isPlaying) resetTimer();
+}
+
+function resetTimer() { stopTimer(); if (isPlaying) timer = setTimeout(autoAdvance, speed); }
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+
+function autoAdvance() {
+  if (!isPlaying) return;
+  if (currentIdx < allWords.length - 1) { currentIdx++; showCard(); resetTimer(); }
+  else { currentIdx = allWords.length; showCard(); stopTimer(); }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') { nextCard(); }
+  else if (e.key === 'ArrowLeft') { prevCard(); }
+  else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+});
+
+buildStageNav();
+// Show first card visually but wait for user gesture to start audio
+showCardSilent();
+function showCardSilent() {
+  const w = allWords[0];
+  document.getElementById('cardEmoji').innerHTML = emojiHTML(w.emoji);
+  document.getElementById('cardWord').textContent = w.en;
+  document.getElementById('cardCounter').textContent = '1/' + allWords.length;
+}
+</script>
+</body>
+</html>
