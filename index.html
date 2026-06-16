@@ -312,7 +312,12 @@
 // ========================================
 // Init
 // ========================================
-const state = Storage.load();
+var state;
+try {
+  state = Storage.load();
+} catch(e) {
+  document.getElementById('unitGrid').innerHTML = '<div class="frost-card" style="margin:20px;padding:20px;background:#FFEBEE;"><h2>Storage Error</h2><p>' + e.message + '</p></div>';
+}
 
 function init() {
   try {
@@ -320,7 +325,7 @@ function init() {
     renderUnits();
     var grid = document.getElementById('unitGrid');
     if (!grid.innerHTML.trim()) {
-      grid.innerHTML = '<div class="frost-card" style="margin:20px;padding:20px;"><p>WORD_DATA: ' + (typeof WORD_DATA !== 'undefined' ? Object.keys(WORD_DATA).join(',') : 'UNDEFINED') + '</p></div>';
+      grid.innerHTML = '<div class="frost-card" style="margin:20px;padding:20px;"><p>Grid empty. WORD_DATA: ' + (typeof WORD_DATA !== 'undefined' ? Object.keys(WORD_DATA).join(',') : 'UNDEFINED') + '</p><p>Storage: ' + (typeof Storage !== 'undefined' ? 'OK' : 'UNDEFINED') + '</p></div>';
     }
   } catch(e) {
     document.getElementById('unitGrid').innerHTML = '<div class="frost-card" style="margin:20px;padding:20px;background:#FFEBEE;border:3px solid #F44336;"><h2>Error</h2><p>' + e.message + '</p></div>';
