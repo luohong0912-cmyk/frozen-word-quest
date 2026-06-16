@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stage 2 — Listen & Pick</title>
+<link rel="stylesheet" href="../shared/frozen-theme.css">
+<style>
+  .container { max-width: 700px; margin: 0 auto; padding: 0 16px 40px; position: relative; z-index: 1; }
+
+  /* Stage Navigation */
+  .stage-nav {
+    display: flex; justify-content: center; gap: 8px; padding: 12px; flex-wrap: wrap;
+  }
+  .stage-nav a {
+    text-decoration: none; padding: 6px 14px; border-radius: 20px;
+    font-size: 0.8rem; font-weight: 600;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.6);
+    color: var(--text-light);
+  }
+  .stage-nav a.active {
+    background: linear-gradient(135deg, var(--ice-blue), var(--ice-light));
+    color: var(--deep-blue); border-color: white;
+  }
+  .stage-nav a.done { background: var(--correct-green); color: white; border-color: white; }
+
+  /* Score & Progress */
+  .score-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 16px; gap: 12px; flex-wrap: wrap;
+  }
+
+  /* Speaker area */
+  .speaker-zone {
+    text-align: center; padding: 20px;
+  }
+  .speaker-btn {
+    width: 100px; height: 100px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--ice-blue), white);
+    border: 4px solid white; box-shadow: var(--shadow-lg);
+    cursor: pointer; font-size: 3rem;
+    transition: all 0.2s; display: inline-flex;
+    align-items: center; justify-content: center;
+  }
+  .speaker-btn:hover { transform: scale(1.08); }
+  .speaker-btn.playing {
+    animation: speakerPulse 0.6s ease-in-out infinite;
+    border-color: var(--frost-purple);
+  }
+  @keyframes speakerPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(147,112,219,0.4); }
+    50% { box-shadow: 0 0 0 20px rgba(147,112,219,0); }
+  }
+  .speaker-hint {
+    color: var(--text-light); font-size: 0.9rem; margin-top: 8px;
+  }
+
+  /* Choice grid */
+  .choice-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    padding: 8px 16px; max-width: 420px; margin: 0 auto;
+  }
+  .choice-card {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 20px 16px; background: white; border-radius: var(--radius);
+    box-shadow: var(--shadow); cursor: pointer; border: 3px solid transparent;
+    transition: all 0.2s; user-select: none;
+  }
+  .choice-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+  .choice-card.correct {
+    border-color: var(--correct-green);
+    background: #E8F5E9;
+    animation: popIn 0.4s ease-out;
+  }
+  .choice-card.wrong {
+    border-color: var(--wrong-red);
+    background: #FFEBEE;
+    animation: shake 0.4s ease;
+  }
+  .choice-card .choice-emoji { font-size: 3rem; }
+
+  /* Question counter */
+  .q-counter {
+    display: flex; gap: 6px; justify-content: center; padding: 8px;
+  }
+  .q-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: rgba(255,255,255,0.6);
+    border: 1.5px solid var(--frost-silver);
+  }
+  .q-dot.correct-q { background: var(--correct-green); border-color: white; }
+  .q-dot.wrong-q { background: var(--wrong-red); border-color: white; }
+
+  /* Complete section */
+  .complete-section {
+    text-align: center; padding: 30px; animation: popIn 0.5s ease-out;
+  }
+  .complete-section .big-emoji { font-size: 4rem; }
+  .result-stars { font-size: 2rem; letter-spacing: 4px; margin: 12px 0; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="page-header">
+    <h1>🎧 Stage 2: Listen & Pick</h1>
+    <p class="subtitle">Listen to the word and tap the right picture</p>
+  </div>
+
+  <div class="stage-nav" id="stageNav"></div>
+
+  <div id="gameArea">
+    <div class="score-bar">
+      <div class="star-bar">
+        <span>⭐</span><span id="scoreDisplay">0</span>
+      </div>
+      <div class="progress-bar" style="max-width:200px;">
+        <div class="fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <span style="font-size:0.85rem;color:var(--text-light);" id="roundDisplay">0/0</span>
+    </div>
+
+    <div class="speaker-zone">
+      <button class="speaker-btn" id="speakerBtn" onclick="playWord()">🔊</button>
+      <p class="speaker-hint">Listen and choose the right picture!</p>
+    </div>
+
+    <div class="choice-grid" id="choiceGrid"></div>
+
+    <div class="q-counter" id="qCounter"></div>
+  </div>
+
+  <div id="completeSection" style="display:none;">
+    <div class="frost-card complete-section">
+      <div class="big-emoji">🎉</div>
+      <h2>Great Listening!</h2>
+      <div class="result-stars" id="resultStars"></div>
+      <p style="color:var(--text-light);" id="resultText"></p>
+      <div style="margin-top:20px;">
+        <button class="ice-btn gold" onclick="goToNext()">⭐ Continue to Stage 3</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../data/words.js"></script>
+<script src="../shared/storage.js"></script>
+<script src="../shared/tts.js"></script>
+<script src="../shared/emoji-helper.js"></script>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const unitId = params.get('unit') || '1';
+const lessonId = params.get('lesson') || '1';
+const lessonData = WORD_DATA[unitId].lessons[lessonId];
+// For review, combine all lesson words (deduplicate by word)
+let allWords = lessonData.words || [];
+if (lessonId === 'review' || allWords.length === 0) {
+  const seen = new Set();
+  allWords = [];
+  for (const [lid, ldata] of Object.entries(WORD_DATA[unitId].lessons)) {
+    if (lid !== 'review' && ldata.words) {
+      ldata.words.forEach(w => {
+        if (!seen.has(w.en.toLowerCase())) { seen.add(w.en.toLowerCase()); allWords.push(w); }
+      });
+    }
+  }
+}
+
+// Select 8 random words (or all if less than 8)
+const gameWords = shuffleArray([...allWords]).slice(0, Math.min(8, allWords.length));
+
+let currentQ = 0;
+let score = 0;
+let results = [];
+let answered = false;
+
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildStageNav() {
+  const nav = document.getElementById('stageNav');
+  const stages = [
+    { id: 'story', name: '1. Story', file: '1-story.html' },
+    { id: 'listen', name: '2. Listen', file: '2-listen.html' },
+    { id: 'wordsearch', name: '3. Search', file: '3-wordsearch.html' },
+    { id: 'match', name: '4. Match', file: '4-match.html' },
+    { id: 'boss', name: '5. Boss', file: '5-boss.html' }
+  ];
+  const prog = Storage.getProgress(unitId, lessonId);
+  nav.innerHTML = stages.map(s => {
+    let cls = '';
+    if (s.id === 'listen') cls = 'active';
+    if (prog[s.id] !== undefined) cls = 'done';
+    return `<a href="${s.file}?unit=${unitId}&lesson=${lessonId}" class="${cls}">${s.name}</a>`;
+  }).join('');
+}
+
+function renderQuestion() {
+  if (currentQ >= gameWords.length) {
+    showComplete();
+    return;
+  }
+
+  answered = false;
+  const target = gameWords[currentQ];
+
+  // Build 4 options (1 correct + 3 distractors)
+  const distractors = shuffleArray(allWords.filter(w => w.en !== target.en)).slice(0, 3);
+  const options = shuffleArray([target, ...distractors]);
+
+  // Render choices
+  const grid = document.getElementById('choiceGrid');
+  grid.innerHTML = options.map(w => `
+    <div class="choice-card" data-word="${w.en}" onclick="selectAnswer(this, '${w.en.replace(/'/g, "\\'")}')">
+      <span class="choice-emoji">${emojiHTML(w.emoji)}</span>
+    </div>
+  `).join('');
+
+  // Update UI
+  document.getElementById('roundDisplay').textContent = `${currentQ + 1}/${gameWords.length}`;
+  document.getElementById('progressFill').style.width = ((currentQ / gameWords.length) * 100) + '%';
+  document.getElementById('scoreDisplay').textContent = score;
+
+  // Update q-counter dots
+  updateQCounter();
+
+  // Auto-play word
+  setTimeout(() => playWord(), 400);
+}
+
+function updateQCounter() {
+  const counter = document.getElementById('qCounter');
+  counter.innerHTML = gameWords.map((_, i) => {
+    let cls = 'q-dot';
+    if (results[i] === true) cls += ' correct-q';
+    if (results[i] === false) cls += ' wrong-q';
+    return `<span class="${cls}"></span>`;
+  }).join('');
+}
+
+async function playWord() {
+  if (currentQ >= gameWords.length) return;
+  const btn = document.getElementById('speakerBtn');
+  btn.classList.add('playing');
+  await TTS.speakWord(gameWords[currentQ].en);
+  btn.classList.remove('playing');
+}
+
+async function selectAnswer(card, word) {
+  if (answered) return;
+
+  const target = gameWords[currentQ].en;
+  const correct = word === target;
+
+  if (correct) {
+    answered = true;
+    card.classList.add('correct');
+    score++;
+    results.push(true);
+    TTS.speak('Great!');
+    document.getElementById('scoreDisplay').textContent = score;
+    updateQCounter();
+    // Advance to next question after brief celebration
+    setTimeout(() => {
+      currentQ++;
+      renderQuestion();
+    }, 900);
+  } else {
+    // Wrong — flash red only, let student find the correct one
+    card.classList.add('wrong');
+    setTimeout(() => {
+      card.classList.remove('wrong');
+    }, 800);
+  }
+}
+
+function showComplete() {
+  document.getElementById('gameArea').style.display = 'none';
+  document.getElementById('completeSection').style.display = 'block';
+
+  const maxStars = STAGE_STARS.listen;
+  const ratio = score / gameWords.length;
+  let earned;
+  if (ratio >= 0.9) earned = maxStars;
+  else if (ratio >= 0.7) earned = maxStars - 1;
+  else if (ratio >= 0.5) earned = 1;
+  else earned = 0;
+
+  document.getElementById('resultStars').textContent = '⭐'.repeat(earned) + '☆'.repeat(maxStars - earned);
+  document.getElementById('resultText').textContent = `You got ${score}/${gameWords.length} correct!`;
+
+  Storage.completeStage(unitId, lessonId, 'listen', earned);
+  buildStageNav();
+
+  if (earned >= 2) {
+    const el = document.createElement('div');
+    el.textContent = '⭐'.repeat(earned);
+    el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3rem;z-index:2000;pointer-events:none;animation:starUp 1.5s ease-out forwards;';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1500);
+  }
+}
+
+function goToNext() {
+  window.location.href = `3-wordsearch.html?unit=${unitId}&lesson=${lessonId}`;
+}
+
+// Init
+buildStageNav();
+renderQuestion();
+</script>
+
+</body>
+</html>

@@ -291,9 +291,29 @@
 
 <script>
 // ========================================
+<<<<<<< HEAD
 // Login check — skip for debugging
 // ========================================
 const SKIP_LOGIN = true;
+=======
+// Login check
+// ========================================
+(function() {
+  const token = localStorage.getItem('frozen_word_quest_login');
+  if (!token) { window.location.href = 'login.html'; return; }
+  try {
+    const data = JSON.parse(atob(token));
+    if (!data.phone || data.expires <= Date.now()) {
+      localStorage.removeItem('frozen_word_quest_login');
+      window.location.href = 'login.html';
+      return;
+    }
+  } catch(e) {
+    window.location.href = 'login.html';
+    return;
+  }
+})();
+>>>>>>> 5cb36043183cd7e51c05900e5e5d95ab3cbd5e2f
 
 // ========================================
 // Init
@@ -301,6 +321,7 @@ const SKIP_LOGIN = true;
 const state = Storage.load();
 
 function init() {
+<<<<<<< HEAD
   try {
     var nUnits = typeof WORD_DATA !== 'undefined' ? Object.keys(WORD_DATA).length : 'WORD_DATA undefined!';
     document.getElementById('elsaFigure').textContent = '👸 v' + nUnits;
@@ -309,6 +330,10 @@ function init() {
   } catch(e) {
     document.getElementById('unitGrid').innerHTML = '<div class="frost-card" style="margin:20px;padding:20px;background:#FFEBEE;border:3px solid #F44336;"><h2>❌ Error</h2><p>' + e.message + '</p></div>';
   }
+=======
+  updateStarDisplay();
+  renderUnits();
+>>>>>>> 5cb36043183cd7e51c05900e5e5d95ab3cbd5e2f
 }
 
 function logout() {

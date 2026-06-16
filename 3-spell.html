@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Review — Spell It!</title>
+<link rel="stylesheet" href="../shared/frozen-theme.css">
+<style>
+  .container { max-width: 700px; margin: 0 auto; padding: 0 16px 40px; position: relative; z-index: 1; }
+  .stage-nav { display: flex; justify-content: center; gap: 8px; padding: 12px; flex-wrap: wrap; }
+  .stage-nav a { text-decoration: none; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.6); color: var(--text-light); }
+  .stage-nav a.active { background: linear-gradient(135deg, var(--frost-purple), var(--frost-purple-light)); color: white; border-color: white; }
+  .stage-nav a.done { background: var(--correct-green); color: white; border-color: white; }
+  .score-bar { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 8px 16px; flex-wrap: wrap; }
+
+  .spell-card { text-align: center; padding: 28px 20px; margin-top: 8px; min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
+  .spell-hint { font-size: 2.2rem; font-weight: 800; color: var(--deep-blue); letter-spacing: 6px; font-family: 'Courier New', monospace; }
+  .spell-hint .blank-slot { display: inline-block; width: 32px; border-bottom: 3px solid var(--frost-purple); margin: 0 2px; color: transparent; transition: all 0.3s; }
+  .spell-hint .blank-slot.filled { color: var(--correct-green); border-bottom-color: var(--correct-green); }
+  .spell-letter-emoji { font-size: 2rem; }
+
+  .letter-choices { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .letter-btn { width: 50px; height: 50px; border-radius: 50%; background: white; border: 3px solid var(--ice-blue); font-size: 1.4rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; color: var(--deep-blue); box-shadow: var(--shadow); user-select: none; }
+  .letter-btn:hover { transform: scale(1.1); background: var(--ice-pale); }
+  .letter-btn.used { background: var(--correct-green); color: white; border-color: white; pointer-events: none; opacity: 0.5; }
+  .letter-btn.wrong-flash { border-color: var(--wrong-red); background: #FFEBEE; animation: shake 0.4s ease; }
+
+  .spell-feedback { min-height: 24px; font-weight: 700; font-size: 1rem; }
+  .spell-feedback.good { color: var(--correct-green); }
+  .spell-feedback.bad { color: var(--wrong-red); }
+
+  .complete-section { text-align: center; padding: 30px; animation: popIn 0.5s ease-out; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="page-header"><h1>✍️ Spell It!</h1><p class="subtitle">Fill in the missing letters!</p></div>
+  <div class="stage-nav" id="stageNav"></div>
+
+  <div id="gameArea">
+    <div class="score-bar">
+      <div class="star-bar"><span>⭐</span><span id="scoreDisplay">0</span>/<span id="totalDisplay">0</span></div>
+      <div class="progress-bar" style="max-width:180px;"><div class="fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+    <div class="frost-card spell-card">
+      <div class="spell-letter-emoji" id="spellEmoji"></div>
+      <div class="spell-hint" id="spellHint"></div>
+      <div class="spell-feedback" id="spellFeedback"></div>
+      <div class="letter-choices" id="letterChoices"></div>
+    </div>
+  </div>
+
+  <div id="completeSection" style="display:none;"><div class="frost-card complete-section"><h2>🌟 Great Spelling!</h2><p id="resultText"></p><div style="margin-top:20px;"><a class="ice-btn gold" href="4-match.html?unit=2&lesson=review">⭐ Continue</a></div></div></div>
+</div>
+
+<script src="../data/words.js"></script>
+<script src="../shared/storage.js"></script>
+<script src="../shared/tts.js"></script>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const unitId = params.get('unit') || '2';
+const unitData = WORD_DATA[unitId];
+const spellData = unitData.lessons.review?.spell || [];
+let spells = [...spellData];
+let currentQ = 0;
+let score = 0;
+let answered = false;
+let blanksFilled = 0;
+let totalBlanks = 0;
+
+// Count total blanks
+spells.forEach(s => totalBlanks += s.missing.length);
+
+function buildStageNav() {
+  const nav = document.getElementById('stageNav');
+  const stages = [
+    { id: 'flashcard', name: '1. Flash', file: '1-flashcard.html' },
+    { id: 'review-listen', name: '2. Listen', file: '2-listen.html' },
+    { id: 'review-spell', name: '3. Spell', file: '3-spell.html' },
+    { id: 'review-match', name: '4. Match', file: '4-match.html' },
+    { id: 'review-boss', name: '5. Boss', file: '5-boss.html' }
+  ];
+  nav.innerHTML = stages.map(s => {
+    let cls = s.id === 'review-spell' ? 'active' : '';
+    return `<a href="${s.file}?unit=${unitId}&lesson=review" class="${cls}">${s.name}</a>`;
+  }).join('');
+}
+
+function renderQuestion() {
+  if (currentQ >= spells.length) {
+    showComplete();
+    return;
+  }
+  answered = false;
+  const spell = spells[currentQ];
+  const missing = [...spell.missing]; // copy
+  const filled = new Array(missing.length).fill(false);
+
+  // Store state on the DOM
+  document.getElementById('spellHint').dataset.missing = JSON.stringify(missing);
+  document.getElementById('spellHint').dataset.filled = JSON.stringify(filled);
+  document.getElementById('spellHint').dataset.remaining = missing.length;
+
+  // Find emoji from unit words
+  let emoji = '📝';
+  for (const [lid, ldata] of Object.entries(unitData.lessons)) {
+    if (lid === 'review') continue;
+    const found = (ldata.words||[]).find(w => w.en.toLowerCase() === spell.word.toLowerCase());
+    if (found) { emoji = found.emoji; break; }
+  }
+  document.getElementById('spellEmoji').textContent = emoji;
+
+  // Render hint with blanks
+  let html = '';
+  let blankIdx = 0;
+  for (const ch of spell.hint) {
+    if (ch === '_') {
+      html += `<span class="blank-slot" id="slot${blankIdx}">_</span>`;
+      blankIdx++;
+    } else if (ch !== ' ') {
+      html += ch;
+    } else {
+      html += ' ';
+    }
+  }
+  document.getElementById('spellHint').innerHTML = html;
+
+  // Letter choices
+  const choices = [...new Set([...spell.missing, ...spell.distractors])];
+  const shuffled = choices.sort(() => Math.random() - 0.5);
+  document.getElementById('letterChoices').innerHTML = shuffled.map(l =>
+    `<div class="letter-btn" onclick="pickLetter(this, '${l}')">${l}</div>`
+  ).join('');
+
+  document.getElementById('spellFeedback').textContent = '';
+  document.getElementById('spellFeedback').className = 'spell-feedback';
+  document.getElementById('scoreDisplay').textContent = score;
+  document.getElementById('totalDisplay').textContent = spells.length;
+  document.getElementById('progressFill').style.width = ((currentQ / spells.length)*100) + '%';
+}
+
+function pickLetter(el, letter) {
+  if (answered) return;
+  const missing = JSON.parse(document.getElementById('spellHint').dataset.missing);
+  const filled = JSON.parse(document.getElementById('spellHint').dataset.filled);
+
+  // Find first unfilled slot that needs this letter
+  let slotIdx = -1;
+  for (let i = 0; i < missing.length; i++) {
+    if (!filled[i] && missing[i] === letter) { slotIdx = i; break; }
+  }
+
+  const fb = document.getElementById('spellFeedback');
+  if (slotIdx >= 0) {
+    // Correct!
+    filled[slotIdx] = true;
+    document.getElementById('spellHint').dataset.filled = JSON.stringify(filled);
+    const remaining = parseInt(document.getElementById('spellHint').dataset.remaining) - 1;
+    document.getElementById('spellHint').dataset.remaining = remaining;
+
+    const slot = document.getElementById('slot' + slotIdx);
+    if (slot) { slot.textContent = letter; slot.classList.add('filled'); }
+    el.classList.add('used');
+    TTS.speak(letter);
+
+    if (remaining <= 0) {
+      // Word complete!
+      answered = true;
+      score++;
+      fb.textContent = '✅ ' + spells[currentQ].word + '!';
+      fb.className = 'spell-feedback good';
+      TTS.speakWord(spells[currentQ].word);
+      setTimeout(() => { currentQ++; renderQuestion(); }, 900);
+    } else {
+      fb.textContent = '👍 Good!';
+      fb.className = 'spell-feedback good';
+      setTimeout(() => { fb.textContent = ''; fb.className = 'spell-feedback'; }, 600);
+    }
+  } else {
+    el.classList.add('wrong-flash');
+    fb.textContent = '❌ Try again!';
+    fb.className = 'spell-feedback bad';
+    setTimeout(() => { el.classList.remove('wrong-flash'); fb.textContent = ''; fb.className = 'spell-feedback'; }, 700);
+  }
+}
+
+function showComplete() {
+  document.getElementById('gameArea').style.display = 'none';
+  document.getElementById('completeSection').style.display = 'block';
+  document.getElementById('resultText').textContent = score + '/' + spells.length + ' words spelled!';
+  Storage.completeStage(unitId, 'review', 'wordsearch', STAGE_STARS.wordsearch);
+  buildStageNav();
+}
+
+buildStageNav();
+renderQuestion();
+</script>
+</body>
+</html>
