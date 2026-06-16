@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stage 5 — Fill the Blanks</title>
+<link rel="stylesheet" href="../shared/frozen-theme.css">
+<style>
+  .container { max-width: 700px; margin: 0 auto; padding: 0 16px 40px; position: relative; z-index: 1; }
+
+  .stage-nav {
+    display: flex; justify-content: center; gap: 8px; padding: 12px; flex-wrap: wrap;
+  }
+  .stage-nav a {
+    text-decoration: none; padding: 6px 14px; border-radius: 20px;
+    font-size: 0.8rem; font-weight: 600;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.6);
+    color: var(--text-light);
+  }
+  .stage-nav a.active {
+    background: linear-gradient(135deg, var(--frost-purple), var(--frost-purple-light));
+    color: white; border-color: white;
+  }
+  .stage-nav a.done { background: var(--correct-green); color: white; border-color: white; }
+
+  /* Score bar */
+  .score-bar {
+    display: flex; justify-content: center; align-items: center; gap: 12px;
+    padding: 8px 16px; flex-wrap: wrap;
+  }
+
+  /* Sentence card */
+  .sentence-card {
+    text-align: center; padding: 32px 20px; margin-top: 8px;
+    min-height: 220px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 20px;
+  }
+  .sentence-num {
+    display: inline-block; padding: 4px 16px; border-radius: 16px;
+    background: var(--frost-purple); color: white;
+    font-size: 0.85rem; font-weight: 800;
+  }
+  .sentence-canvas-wrap {
+    margin: 4px 0; display: flex; justify-content: center;
+  }
+  @keyframes floatEmoji {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  .sentence-text {
+    font-size: 1.4rem; line-height: 2.2; color: var(--text-dark);
+  }
+  .sentence-text .blank {
+    display: inline-block; min-width: 80px;
+    border-bottom: 3px dashed var(--frost-purple);
+    margin: 0 6px; padding: 2px 8px; font-weight: 700;
+    transition: all 0.3s;
+  }
+  .sentence-text .blank.active {
+    border-bottom-color: var(--ice-blue);
+    background: rgba(135,206,235,0.12);
+    border-radius: 4px;
+    animation: blankPulse 1s ease-in-out infinite;
+  }
+  .sentence-text .blank.filled {
+    border-bottom-style: solid;
+    border-bottom-color: var(--correct-green);
+    color: var(--correct-green);
+    background: rgba(76,175,80,0.08);
+  }
+  @keyframes blankPulse {
+    0%,100% { border-bottom-color: var(--ice-blue); }
+    50% { border-bottom-color: var(--frost-purple); }
+  }
+
+  /* Word bank */
+  .word-bank {
+    display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+    padding: 16px;
+  }
+  .word-btn {
+    padding: 12px 22px; background: white; border-radius: 24px;
+    box-shadow: var(--shadow); cursor: pointer;
+    border: 3px solid var(--ice-light); font-size: 1.1rem;
+    font-weight: 700; color: var(--deep-blue);
+    transition: all 0.2s; user-select: none;
+  }
+  .word-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .word-btn.used {
+    background: var(--correct-green); color: white;
+    border-color: white; opacity: 0.5; cursor: default;
+    pointer-events: none; text-decoration: line-through;
+  }
+  .word-btn.wrong-flash {
+    border-color: var(--wrong-red); background: #FFEBEE;
+    animation: shake 0.4s ease;
+  }
+
+  /* Feedback */
+  .boss-feedback {
+    text-align: center; min-height: 28px; font-weight: 700; font-size: 1.1rem;
+    padding: 4px;
+  }
+  .speaker-mini {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--ice-pale); border: 2px solid var(--ice-blue);
+    cursor: pointer; font-size: 1rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .speaker-mini:hover { background: var(--ice-blue); }
+  .boss-feedback.good { color: var(--correct-green); }
+  .boss-feedback.bad { color: var(--wrong-red); }
+
+  /* Sentence dots */
+  .sentence-dots {
+    display: flex; gap: 5px; justify-content: center; padding: 8px;
+  }
+  .sent-dot {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--frost-silver); transition: all 0.3s;
+  }
+  .sent-dot.current { background: var(--frost-purple); transform: scale(1.5); }
+  .sent-dot.done { background: var(--correct-green); }
+
+  /* Complete */
+  .complete-section {
+    text-align: center; padding: 30px; animation: popIn 0.5s ease-out;
+  }
+  .complete-section .big-emoji { font-size: 4rem; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="page-header">
+    <h1>🏰 Stage 5: Fill the Blanks</h1>
+    <p class="subtitle">Fill in the missing words — one sentence at a time!</p>
+  </div>
+
+  <div class="stage-nav" id="stageNav"></div>
+
+  <div id="gameArea">
+    <div class="score-bar">
+      <span style="font-weight:700;color:var(--deep-blue);">Sentence <span id="currentSent">1</span>/<span id="totalSent">0</span></span>
+      <button class="speaker-mini" id="speakerMini" onclick="playSentenceAudio()" title="Listen">🔊</button>
+      <div class="progress-bar" style="max-width:180px;">
+        <div class="fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Sentence -->
+    <div class="frost-card sentence-card" id="sentenceCard">
+      <div class="sentence-num" id="sentNum">Sentence 1</div>
+      <canvas id="sceneCanvas" width="320" height="200" style="max-width:100%;height:auto;border-radius:12px;"></canvas>
+      <div class="sentence-text" id="sentenceText"></div>
+    </div>
+
+    <!-- Feedback -->
+    <div class="boss-feedback" id="bossFeedback"></div>
+
+    <!-- Word Bank -->
+    <div class="word-bank" id="wordBank"></div>
+
+    <!-- Sentence dots -->
+    <div class="sentence-dots" id="sentDots"></div>
+  </div>
+
+  <!-- Complete -->
+  <div id="completeSection" style="display:none;">
+    <div class="frost-card complete-section">
+      <div class="big-emoji">🏆</div>
+      <h2>All Sentences Complete!</h2>
+      <p id="resultStars" style="font-size:1.5rem;margin:8px 0;"></p>
+      <p style="color:var(--text-light);">You filled every blank in the story!</p>
+      <div style="margin-top:20px;">
+        <a class="ice-btn gold" href="../index.html">🏠 Back to Elsa's Palace</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../data/words.js"></script>
+<script src="../shared/storage.js"></script>
+<script src="../shared/tts.js"></script>
+<script src="../shared/emoji-helper.js"></script>
+<script src="../shared/canvas-illustrations.js"></script>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const unitId = params.get('unit') || '1';
+const lessonId = params.get('lesson') || '1';
+const lessonData = WORD_DATA[unitId].lessons[lessonId];
+// For review, combine all lesson words
+let allWordsArr = lessonData.words || [];
+if (lessonId === 'review' || allWordsArr.length === 0) {
+  const seen = new Set();
+  allWordsArr = [];
+  for (const [lid, ldata] of Object.entries(WORD_DATA[unitId].lessons)) {
+    if (lid !== 'review' && ldata.words) {
+      ldata.words.forEach(w => {
+        if (!seen.has(w.en.toLowerCase())) { seen.add(w.en.toLowerCase()); allWordsArr.push(w); }
+      });
+    }
+  }
+}
+const allLessonWords = allWordsArr.map(w => w.en.toLowerCase());
+
+const clozeData = lessonData.cloze;
+const sentences = clozeData ? clozeData.sentences : [];
+
+let currentSentenceIdx = 0;
+let currentBlankInSentence = 0; // which blank within the current sentence
+let answered = false;
+
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildStageNav() {
+  const nav = document.getElementById('stageNav');
+  const stages = [
+    { id: 'story', name: '1. Story', file: '1-story.html' },
+    { id: 'listen', name: '2. Listen', file: '2-listen.html' },
+    { id: 'wordsearch', name: '3. Search', file: '3-wordsearch.html' },
+    { id: 'match', name: '4. Match', file: '4-match.html' },
+    { id: 'boss', name: '5. Boss', file: '5-boss.html' }
+  ];
+  const prog = Storage.getProgress(unitId, lessonId);
+  nav.innerHTML = stages.map(s => {
+    let cls = '';
+    if (s.id === 'boss') cls = 'active';
+    if (prog[s.id] !== undefined) cls = 'done';
+    return `<a href="${s.file}?unit=${unitId}&lesson=${lessonId}" class="${cls}">${s.name}</a>`;
+  }).join('');
+}
+
+function renderSentence() {
+  if (currentSentenceIdx >= sentences.length) {
+    showComplete();
+    return;
+  }
+
+  answered = false;
+  currentBlankInSentence = 0;
+
+  const sent = sentences[currentSentenceIdx];
+  const blanks = sent.blanks;
+
+  // Build sentence HTML with blanks
+  let html = '';
+  let blankIdx = 0;
+  const parts = sent.text.split('___');
+  for (let i = 0; i < parts.length; i++) {
+    html += parts[i];
+    if (i < parts.length - 1) {
+      const isActive = blankIdx === 0; // first blank is active
+      html += `<span class="blank${isActive ? ' active' : ''}" id="blank${blankIdx}"></span>`;
+      blankIdx++;
+    }
+  }
+
+  document.getElementById('sentNum').textContent = 'Sentence ' + (currentSentenceIdx + 1);
+  drawCanvasScene(document.getElementById('sceneCanvas'), unitId, lessonId, currentSentenceIdx);
+  document.getElementById('sentenceText').innerHTML = html;
+  document.getElementById('currentSent').textContent = currentSentenceIdx + 1;
+  document.getElementById('totalSent').textContent = sentences.length;
+  document.getElementById('progressFill').style.width = ((currentSentenceIdx / sentences.length) * 100) + '%';
+  document.getElementById('bossFeedback').textContent = '';
+  document.getElementById('bossFeedback').className = 'boss-feedback';
+
+  // Build word bank — always at least 2 choices
+  const targets = blanks.map(b => b.toLowerCase());
+  // Pick distractors: different first letter from all targets, rotate so each sentence gets a different one
+  const candidates = allLessonWords.filter(w => !targets.includes(w) && !targets.some(t => w[0] === t[0]));
+  // Sort by length difference from target (prefer different length), then cycle by sentence index
+  const sorted = candidates.sort((a,b) => a.length - b.length);
+  const minWords = Math.max(2, targets.length + (parseInt(unitId) >= 3 ? 1 : 0));
+  const needExtra = Math.max(0, minWords - targets.length);
+  // Use sentence index to pick different distractors for different sentences
+  const distractors = [];
+  for (let i = 0; i < needExtra; i++) {
+    const idx = (currentSentenceIdx * 3 + i * 7) % sorted.length;
+    distractors.push(sorted[idx]);
+  }
+  const bank = shuffleArray([...targets, ...distractors]);
+
+  const bankDiv = document.getElementById('wordBank');
+  bankDiv.innerHTML = bank.map(w => {
+    return `<div class="word-btn" onclick="pickWord(this, '${w}')">${w}</div>`;
+  }).join('');
+
+  // Update dots
+  updateDots();
+}
+
+function updateDots() {
+  const dots = document.getElementById('sentDots');
+  dots.innerHTML = sentences.map((_, i) => {
+    let cls = 'sent-dot';
+    if (i === currentSentenceIdx) cls += ' current';
+    if (i < currentSentenceIdx) cls += ' done';
+    return `<span class="${cls}"></span>`;
+  }).join('');
+}
+
+function pickWord(el, word) {
+  if (answered) return;
+
+  const sent = sentences[currentSentenceIdx];
+  const target = sent.blanks[currentBlankInSentence].toLowerCase();
+  const fb = document.getElementById('bossFeedback');
+
+  if (word === target) {
+    // Correct! Fill this blank
+    answered = true;
+
+    // Update the blank visually (do this FIRST, before any delay)
+    const blankEl = document.getElementById('blank' + currentBlankInSentence);
+    if (blankEl) {
+      blankEl.textContent = word;
+      blankEl.classList.remove('active');
+      blankEl.classList.add('filled');
+    }
+    el.classList.add('used');
+
+    currentBlankInSentence++;
+
+    // Check if all blanks in this sentence are filled
+    if (currentBlankInSentence >= sent.blanks.length) {
+      // Sentence complete — advance after a brief pause
+      fb.textContent = '✅ Great!';
+      fb.className = 'boss-feedback good';
+      setTimeout(() => {
+        currentSentenceIdx++;
+        renderSentence();
+      }, 700);
+    } else {
+      // Move to next blank in same sentence
+      answered = false;
+      fb.textContent = '✅ Yes!';
+      fb.className = 'boss-feedback good';
+      setTimeout(() => {
+        fb.textContent = '';
+        fb.className = 'boss-feedback';
+        // Highlight next blank
+        const nextBlank = document.getElementById('blank' + currentBlankInSentence);
+        if (nextBlank) nextBlank.classList.add('active');
+      }, 300);
+    }
+  } else {
+    // Wrong
+    el.classList.add('wrong-flash');
+    fb.textContent = '❌ Not that one. Try again!';
+    fb.className = 'boss-feedback bad';
+
+    setTimeout(() => {
+      el.classList.remove('wrong-flash');
+      fb.textContent = '';
+      fb.className = 'boss-feedback';
+    }, 800);
+  }
+}
+
+// Play the current sentence audio
+async function playSentenceAudio() {
+  if (currentSentenceIdx >= sentences.length) return;
+  const sent = sentences[currentSentenceIdx];
+  // Read the sentence with blanks filled or as original text
+  const text = sent.text.replace(/___/g, '...');
+  const btn = document.getElementById('speakerMini');
+  btn.textContent = '🔊';
+  btn.style.background = 'var(--ice-blue)';
+  await TTS.speak(text);
+  btn.textContent = '🔊';
+  btn.style.background = '';
+}
+
+function showComplete() {
+  document.getElementById('gameArea').style.display = 'none';
+  document.getElementById('completeSection').style.display = 'block';
+
+  const maxStars = STAGE_STARS.boss;
+  document.getElementById('resultStars').textContent = '⭐'.repeat(maxStars) + ' All ' + sentences.length + ' sentences done!';
+
+  Storage.completeStage(unitId, lessonId, 'boss', maxStars);
+  buildStageNav();
+
+  const el = document.createElement('div');
+  el.textContent = '⭐'.repeat(maxStars);
+  el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3rem;z-index:2000;pointer-events:none;animation:starUp 1.5s ease-out forwards;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+// Init
+if (!clozeData || sentences.length === 0) {
+  document.getElementById('gameArea').innerHTML = '<div class="frost-card" style="text-align:center;padding:40px;"><h2>🚧 Coming Soon</h2><p>Cloze passage not yet added for this lesson.</p><a class="ice-btn gold" href="../index.html">🏠 Back</a></div>';
+} else {
+  buildStageNav();
+  renderSentence();
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frozen Word Quest — Elsa's Ice Palace</title>
+<link rel="stylesheet" href="shared/frozen-theme.css">
+<style>
+  .container { max-width: 800px; margin: 0 auto; padding: 0 16px 40px; position: relative; z-index: 1; }
+
+  /* Top bar */
+  .top-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; gap: 12px; flex-wrap: wrap;
+  }
+
+  /* Elsa's Castle */
+  .elsa-stage {
+    text-align: center; padding: 20px 16px; position: relative;
+  }
+  .elsa-figure {
+    font-size: 120px; position: relative; display: inline-block;
+    transition: all 0.4s;
+    filter: drop-shadow(0 8px 20px rgba(135,206,235,0.5));
+  }
+  .elsa-platform {
+    width: 160px; height: 12px; margin: 0 auto 8px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), rgba(255,255,255,0.8), rgba(255,255,255,0.4), transparent);
+    border-radius: 50%;
+  }
+
+  /* Snowflakes around Elsa */
+  .snowflake-deco {
+    position: absolute; font-size: 28px; animation: floatSnow 3s ease-in-out infinite;
+  }
+  .snowflake-deco:nth-child(1) { top: 10px; left: 10px; animation-delay: 0s; }
+  .snowflake-deco:nth-child(2) { top: 20px; right: 10px; animation-delay: 0.8s; }
+  .snowflake-deco:nth-child(3) { bottom: 30px; left: 0; animation-delay: 1.6s; }
+  .snowflake-deco:nth-child(4) { bottom: 20px; right: 5px; animation-delay: 2.4s; }
+  @keyframes floatSnow {
+    0%,100% { transform: translateY(0) rotate(0deg); opacity: 0.7; }
+    50% { transform: translateY(-12px) rotate(180deg); opacity: 1; }
+  }
+
+  /* Unit & Lesson grid */
+  .unit-section { margin-top: 12px; }
+  .unit-section h2 {
+    font-size: 1.2rem; color: var(--deep-blue); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .unit-section h2 .unit-num {
+    display: inline-flex; width: 32px; height: 32px; border-radius: 50%;
+    background: var(--frost-purple); color: white; align-items: center; justify-content: center;
+    font-size: 0.9rem;
+  }
+  .unit-section.locked h2 .unit-num { background: #aaa; }
+  .unit-section.locked { opacity: 0.6; }
+
+  .lesson-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px; margin-bottom: 16px;
+  }
+  .lesson-card {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(8px);
+    border-radius: var(--radius-sm);
+    border: 2px solid rgba(255,255,255,0.8);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: var(--text-dark);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .lesson-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+  .lesson-card.locked {
+    opacity: 0.5; cursor: not-allowed;
+    pointer-events: none;
+    filter: grayscale(40%);
+  }
+  .lesson-card .lesson-title {
+    font-weight: 700; font-size: 0.95rem;
+  }
+  .lesson-card .lesson-subtitle {
+    font-size: 0.75rem; color: var(--text-light);
+  }
+  .lesson-card .stage-dots {
+    display: flex; gap: 3px;
+  }
+  .stage-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: rgba(255,255,255,0.7);
+    border: 1.5px solid var(--frost-silver);
+  }
+  .stage-dot.done {
+    background: var(--correct-green); border-color: white;
+  }
+  .stage-dot.current {
+    background: var(--star-yellow); border-color: white;
+  }
+
+  /* Gift Shop Modal */
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%; z-index: 1000;
+    background: rgba(0,0,0,0.5);
+    justify-content: center; align-items: center;
+  }
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: white;
+    border-radius: var(--radius);
+    padding: 24px;
+    max-width: 580px; width: 94%; max-height: 88vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    border: 3px solid var(--ice-light);
+  }
+  .modal h3 {
+    text-align: center; font-size: 1.3rem; color: var(--deep-blue); margin-bottom: 16px;
+  }
+  .modal .close-btn {
+    position: absolute; top: 12px; right: 16px;
+    font-size: 1.5rem; cursor: pointer; color: var(--text-light);
+    background: none; border: none;
+  }
+  .shop-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+  }
+  .shop-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 12px 8px; border-radius: var(--radius-sm);
+    background: var(--snow-white); border: 2px solid var(--ice-light);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .shop-item:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .shop-item.owned { border-color: var(--correct-green); background: #E8F5E9; }
+  .shop-item .item-emoji { font-size: 2rem; }
+  .shop-item .item-name { font-size: 0.75rem; font-weight: 600; text-align: center; }
+  .shop-item .item-cost { font-size: 0.7rem; color: var(--gold); }
+
+  /* Equipped badge */
+  .equipped-badge {
+    font-size: 0.65rem; background: var(--frost-purple); color: white;
+    padding: 2px 8px; border-radius: 10px;
+  }
+
+  /* Tab navigation for shop */
+  .shop-tabs {
+    display: flex; gap: 4px; margin-bottom: 12px; justify-content: center;
+  }
+  .shop-tab {
+    padding: 6px 16px; border-radius: 16px;
+    background: rgba(255,255,255,0.6); border: 1px solid var(--ice-light);
+    cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    transition: all 0.2s;
+  }
+  .shop-tab.active {
+    background: var(--frost-purple); color: white; border-color: var(--frost-purple);
+  }
+
+  /* Sparkle animation for earning stars */
+  .stars-earned {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 3rem; z-index: 2000; pointer-events: none;
+    animation: starUp 1.5s ease-out forwards;
+  }
+  @keyframes starUp {
+    0% { opacity: 1; transform: translate(-50%,-50%) scale(0.5); }
+    50% { opacity: 1; transform: translate(-50%,-80%) scale(1.3); }
+    100% { opacity: 0; transform: translate(-50%,-120%) scale(0.8); }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="star-bar" id="starBar">
+      <span class="star-icon">⭐</span>
+      <span id="starCount">0</span>
+    </div>
+    <button class="ice-btn purple" onclick="openShop()">🎁 Gift Shop</button>
+    <button class="ice-btn" onclick="logout()" style="font-size:0.8rem;padding:6px 14px;">🚪 Leave</button>
+  </div>
+
+  <!-- Elsa Stage -->
+  <div class="elsa-stage">
+    <div class="elsa-figure" id="elsaFigure">👸</div>
+    <div class="elsa-platform"></div>
+    <p style="color:var(--deep-blue);font-weight:700;margin-top:4px;">Elsa's Ice Palace</p>
+  </div>
+
+  <!-- Unit & Lesson Grid -->
+  <div id="unitGrid"></div>
+
+</div>
+
+<!-- Gift Shop Modal -->
+<div class="modal-overlay" id="shopModal">
+  <div class="modal" id="shopModalInner">
+    <button class="close-btn" onclick="closeShop()">✕</button>
+    <h3>🎁 Elsa's Gift Shop</h3>
+    <div class="star-bar" style="justify-content:center;margin-bottom:12px;">
+      <span class="star-icon">⭐</span>
+      <span id="shopStarCount">0</span>
+      <span>available</span>
+    </div>
+
+    <!-- Main Tabs -->
+    <div class="shop-tabs" id="mainTabs">
+      <button class="shop-tab active" data-maintab="shop" onclick="switchMainTab('shop')">🛍️ Shop</button>
+      <button class="shop-tab" data-maintab="inventory" onclick="switchMainTab('inventory')">🎒 My Items</button>
+      <button class="shop-tab" data-maintab="dressup" onclick="switchMainTab('dressup')">👗 Dress Up</button>
+    </div>
+
+    <!-- Sub-tabs for Shop (food/clothes/accessories) -->
+    <div class="shop-tabs" id="subTabs">
+      <button class="shop-tab active" data-shoptab="food" onclick="switchShopTab('food')">🍰 Food</button>
+      <button class="shop-tab" data-shoptab="clothes" onclick="switchShopTab('clothes')">👗 Clothes</button>
+      <button class="shop-tab" data-shoptab="accessories" onclick="switchShopTab('accessories')">💎 Accessories</button>
+    </div>
+
+    <!-- Shop Grid -->
+    <div class="shop-grid" id="shopGrid"></div>
+
+    <!-- Inventory Grid -->
+    <div class="shop-grid" id="inventoryGrid" style="display:none;"></div>
+
+    <!-- Dress Up Area -->
+    <div id="dressupArea" style="display:none;text-align:center;">
+      <div id="elsaFullBody" style="position:relative;width:240px;height:340px;margin:8px auto;">
+        <!-- Head -->
+        <div id="elsaHead" style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:80px;height:80px;background:#FFE0BD;border-radius:50%;border:2px solid #E8C9A0;z-index:5;">
+          <!-- Hair -->
+          <div style="position:absolute;top:-10px;left:-6px;width:92px;height:55px;background:#FFD54F;border-radius:50% 50% 0 0;"></div>
+          <!-- Braid -->
+          <div style="position:absolute;top:28px;left:-12px;width:14px;height:55px;background:#FFD54F;border-radius:0 0 7px 7px;"></div>
+          <!-- Eyes -->
+          <div style="position:absolute;top:30px;left:18px;width:8px;height:10px;background:white;border-radius:50%;"></div>
+          <div style="position:absolute;top:31px;left:20px;width:4px;height:4px;background:#333;border-radius:50%;"></div>
+          <div style="position:absolute;top:30px;left:48px;width:8px;height:10px;background:white;border-radius:50%;"></div>
+          <div style="position:absolute;top:31px;left:50px;width:4px;height:4px;background:#333;border-radius:50%;"></div>
+          <!-- Smile -->
+          <div style="position:absolute;top:46px;left:28px;width:18px;height:7px;border-bottom:2.5px solid #E57373;border-radius:0 0 9px 9px;"></div>
+          <!-- Blush -->
+          <div style="position:absolute;top:38px;left:10px;width:11px;height:6px;background:#FFCDD2;border-radius:50%;opacity:0.6;"></div>
+          <div style="position:absolute;top:38px;left:54px;width:11px;height:6px;background:#FFCDD2;border-radius:50%;opacity:0.6;"></div>
+        </div>
+        <!-- Neck -->
+        <div style="position:absolute;top:78px;left:50%;transform:translateX(-50%);width:20px;height:14px;background:#FFE0BD;z-index:4;"></div>
+        <!-- Body/Torso -->
+        <div id="elsaTorso" style="position:absolute;top:90px;left:50%;transform:translateX(-50%);width:66px;height:70px;background:#64B5F6;border-radius:14px 14px 3px 3px;z-index:3;">
+          <!-- Belt -->
+          <div style="position:absolute;top:0;left:7px;width:52px;height:5px;background:#0D47A1;border-radius:2px;"></div>
+          <!-- Snowflake -->
+          <div style="position:absolute;top:22px;left:20px;font-size:18px;color:white;opacity:0.3;">❄</div>
+        </div>
+        <!-- Arms -->
+        <div style="position:absolute;top:96px;left:62px;width:13px;height:52px;background:#FFE0BD;border-radius:6px;z-index:2;"></div>
+        <div style="position:absolute;top:96px;right:62px;width:13px;height:52px;background:#FFE0BD;border-radius:6px;z-index:2;"></div>
+        <!-- Dress/skirt overlay -->
+        <div id="elsaClothesLayer" style="position:absolute;top:80px;left:50%;transform:translateX(-50%);font-size:90px;z-index:4;pointer-events:none;line-height:1;"></div>
+        <!-- Legs -->
+        <div style="position:absolute;top:158px;left:54px;width:14px;height:50px;background:#FFE0BD;border-radius:7px;z-index:2;"></div>
+        <div style="position:absolute;top:158px;right:54px;width:14px;height:50px;background:#FFE0BD;border-radius:7px;z-index:2;"></div>
+        <!-- Shoes -->
+        <div style="position:absolute;top:204px;left:48px;width:22px;height:10px;background:#1565C0;border-radius:10px 4px 4px 10px;z-index:2;"></div>
+        <div style="position:absolute;top:204px;right:48px;width:22px;height:10px;background:#1565C0;border-radius:4px 10px 10px 4px;z-index:2;"></div>
+        <!-- Accessory overlay -->
+        <div id="elsaAccLayer" style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:42px;z-index:6;pointer-events:none;line-height:1;"></div>
+      </div>
+      <p style="font-size:0.8rem;color:var(--text-light);margin-top:4px;">Click an item below to dress Elsa</p>
+      <div class="shop-grid" id="dressupItems"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========================================
+// Word Game - All Units & Lessons Data
+// ========================================
+
+const WORD_DATA = {
+
+  // ==================== UNIT 2 ====================
+  "2": {
+    title: "Unit 2",
+    lessons: {
+      "1": {
+        title: "Lesson 1 – Stationery",
+        words: [
+          { en: "bag", zh: "书包", emoji: "🎒", type: "noun" },
+          { en: "book", zh: "书", emoji: "📖", type: "noun" },
+          { en: "eraser", zh: "橡皮", emoji: "___eraser___", type: "noun" },
+          { en: "glue", zh: "胶水", emoji: "___glue___", type: "noun" },
+          { en: "paper", zh: "纸", emoji: "📄", type: "noun" },
+          { en: "pen", zh: "钢笔", emoji: "🖊️", type: "noun" },
+          { en: "pencil", zh: "铅笔", emoji: "✏️", type: "noun" },
+          { en: "ruler", zh: "尺子", emoji: "📏", type: "noun" },
+          { en: "scissors", zh: "剪刀", emoji: "✂️", type: "noun" },
+          { en: "nut", zh: "坚果", emoji: "🥜", type: "noun" },
+          { en: "bed", zh: "床", emoji: "🛏️", type: "noun" },
+          { en: "bug", zh: "虫子", emoji: "🐛", type: "noun" },
+          { en: "pet", zh: "宠物", emoji: "🐾", type: "noun" }
+        ],
+        story: {
+          title: "Elsa Packs Her Bag",
+          scenes: [
+            { text: "Elsa picks up her <b>bag</b>. \"This is my school bag!\"", word: "bag", emoji: "🎒", audio: "bag" },
+            { text: "She puts a <b>book</b> inside. \"I love reading!\"", word: "book", emoji: "📖", audio: "book" },
+            { text: "Then an <b>eraser</b>. \"Mistakes are OK — I can erase them!\"", word: "eraser", emoji: "___eraser___", audio: "eraser" },
+            { text: "Some <b>glue</b> too. \"Glue is sticky — be careful!\"", word: "glue", emoji: "___glue___", audio: "glue" },
+            { text: "A sheet of <b>paper</b>. \"Paper for drawing and writing!\"", word: "paper", emoji: "📄", audio: "paper" },
+            { text: "A blue <b>pen</b>. \"My favorite pen!\"", word: "pen", emoji: "🖊️", audio: "pen" },
+            { text: "A yellow <b>pencil</b>. \"Pencils are great for sketching.\"", word: "pencil", emoji: "✏️", audio: "pencil" },
+            { text: "A long <b>ruler</b>. \"I can draw straight lines!\"", word: "ruler", emoji: "📏", audio: "ruler" },
+            { text: "Sharp <b>scissors</b>. \"Cut carefully with scissors!\"", word: "scissors", emoji: "✂️", audio: "scissors" },
+            { text: "Elsa finds a little <b>nut</b> on the desk. \"A tasty snack!\"", word: "nut", emoji: "🥜", audio: "nut" },
+            { text: "She goes to her <b>bed</b>. \"Time to rest for a moment.\"", word: "bed", emoji: "🛏️", audio: "bed" },
+            { text: "Oh! A tiny <b>bug</b> is on the bed! \"Hello, little bug!\"", word: "bug", emoji: "🐛", audio: "bug" },
+            { text: "Her <b>pet</b> comes to say hello. \"This is my lovely pet!\"", word: "pet", emoji: "🐾", audio: "pet" }
+          ]
+        },
+        wordSearch: { gridSize: 7, words: ["BAG","BOOK","GLUE","PAPER","PEN","RULER","NUT","BED","BUG","PET"] },
+        // Cloze passage for Stage 5 Boss
+        cloze: {
+          title: "Elsa's School Day",
+          sentences: [
+            { text: "Elsa puts her ___ in her ___.", blanks: ["book", "bag"], emoji: "👸📖🎒" },
+            { text: "She writes with a ___ on the ___.", blanks: ["pencil", "paper"], emoji: "👸✏️📄" },
+            { text: "She uses an ___ to fix her mistake.", blanks: ["eraser"], emoji: "👸📝✨" },
+            { text: "She uses ___ to stick a picture.", blanks: ["glue"], emoji: "👸🖼️📌" },
+            { text: "With ___, she cuts the paper.", blanks: ["scissors"], emoji: "👸✂️📄" },
+            { text: "She draws a line with her ___.", blanks: ["ruler"], emoji: "👸📏➖" },
+            { text: "She writes her name with a ___.", blanks: ["pen"], emoji: "👸🖊️✍️" },
+            { text: "At home, she sees a ___ on her ___.", blanks: ["bug", "bed"], emoji: "👸🐛🛏️" },
+            { text: "She eats a ___ and plays with her ___.", blanks: ["nut", "pet"], emoji: "👸🥜🐕" }
+          ]
+        }
+      },
+      "2": {
+        title: "Lesson 2 – Actions",
+        words: [
+          { en: "draw", zh: "画画", emoji: "🎨", type: "verb" },
+          { en: "write", zh: "写", emoji: "✍️", type: "verb" },
+          { en: "stick", zh: "粘贴", emoji: "📌", type: "verb" },
+          { en: "fold", zh: "折叠", emoji: "___fold___", type: "verb" },
+          { en: "cut", zh: "剪", emoji: "✂️", type: "verb" },
+          { en: "color", zh: "涂色", emoji: "🖍️", type: "verb" },
+          { en: "open", zh: "打开", emoji: "📂", type: "verb" },
+          { en: "close", zh: "关上", emoji: "📁", type: "verb" },
+          { en: "point", zh: "指", emoji: "👉", type: "verb" },
+          { en: "tidy", zh: "整理", emoji: "🧹", type: "verb" },
+          { en: "put away", zh: "收好", emoji: "📦", type: "verb" },
+          { en: "got", zh: "得到", emoji: "✅", type: "verb" },
+          { en: "gum", zh: "口香糖", emoji: "___gum___", type: "noun" }
+        ],
+        story: {
+          title: "Let's Make a Card!",
+          scenes: [
+            { text: "\"Let's make a birthday card!\" says Elsa. First, she will <b>draw</b> a picture.", word: "draw", emoji: "🎨", audio: "draw" },
+            { text: "Then she will <b>write</b> a message. \"Happy Birthday, Anna!\"", word: "write", emoji: "✍️", audio: "write" },
+            { text: "Now she will <b>stick</b> the paper together. \"The glue helps it stick!\"", word: "stick", emoji: "📌", audio: "stick" },
+            { text: "Time to <b>fold</b> the card in half. \"Fold it nice and straight.\"", word: "fold", emoji: "___fold___", audio: "fold" },
+            { text: "Elsa will <b>cut</b> the edges carefully. \"Scissors — cut, cut, cut!\"", word: "cut", emoji: "✂️", audio: "cut" },
+            { text: "She will <b>color</b> the snowflake blue. \"Blue is my favorite color!\"", word: "color", emoji: "🖍️", audio: "color" },
+            { text: "She will <b>open</b> the card to check. \"Open it up!\"", word: "open", emoji: "📂", audio: "open" },
+            { text: "And <b>close</b> it gently. \"Close it carefully.\"", word: "close", emoji: "📁", audio: "close" },
+            { text: "\"Look!\" she says. \"Let me <b>point</b> to the pretty snowflake!\"", word: "point", emoji: "👉", audio: "point" },
+            { text: "After making the card, Elsa will <b>tidy</b> the desk. \"Keep it clean!\"", word: "tidy", emoji: "🧹", audio: "tidy" },
+            { text: "She will <b>put away</b> all the supplies. \"Everything in its place.\"", word: "put away", emoji: "📦", audio: "put away" },
+            { text: "Elsa <b>got</b> a hug from Anna! \"The best reward!\"", word: "got", emoji: "✅", audio: "got" },
+            { text: "And she shares some <b>gum</b> with her sister. \"Yummy gum!\"", word: "gum", emoji: "___gum___", audio: "gum" }
+          ]
+        },
+        wordSearch: { gridSize: 7, words: ["DRAW","WRITE","STICK","FOLD","CUT","COLOR","OPEN","CLOSE","POINT","TIDY","GOT","GUM"] },
+        cloze: {
+          title: "Elsa Makes a Card",
+          sentences: [
+            { text: "Elsa will ___ a picture and ___ a message.", blanks: ["draw", "write"], emoji: "l2s0" },
+            { text: "She will ___ the paper and ___ the card.", blanks: ["stick", "fold"], emoji: "l2s1" },
+            { text: "She will ___ the edges and ___ it blue.", blanks: ["cut", "color"], emoji: "l2s2" },
+            { text: "She will ___ and ___ the card.", blanks: ["open", "close"], emoji: "l2s3" },
+            { text: "She will ___ to the pretty snowflake.", blanks: ["point"], emoji: "l2s4" },
+            { text: "She will ___ up and ___ her supplies.", blanks: ["tidy", "put away"], emoji: "l2s5" },
+            { text: "She ___ a hug and shares some ___.", blanks: ["got", "gum"], emoji: "l2s6" }
+          ]
+        }
+      },
+      "3": {
+        title: "Lesson 3 – Classroom",
+        words: [
+          { en: "chair", zh: "椅子", emoji: "🪑", type: "noun" },
+          { en: "desk", zh: "书桌", emoji: "___desk___", type: "noun" },
+          { en: "door", zh: "门", emoji: "🚪", type: "noun" },
+          { en: "board", zh: "黑板", emoji: "🖥️", type: "noun" },
+          { en: "teacher", zh: "老师", emoji: "👩‍🏫", type: "noun" },
+          { en: "student", zh: "学生", emoji: "🧒", type: "noun" },
+          { en: "classroom", zh: "教室", emoji: "🏫", type: "noun" },
+          { en: "trash can", zh: "垃圾桶", emoji: "🗑️", type: "noun" },
+          { en: "mug", zh: "杯子", emoji: "🍺", type: "noun" },
+          { en: "ten", zh: "十", emoji: "🔟", type: "number" },
+          { en: "bed", zh: "床", emoji: "🛏️", type: "noun" },
+          { en: "ban", zh: "禁止", emoji: "🚫", type: "verb" },
+          { en: "mad", zh: "生气的", emoji: "😠", type: "adj" }
+        ],
+        story: {
+          title: "In Our Classroom",
+          scenes: [
+            { text: "Elsa walks into the <b>classroom</b>. \"Welcome to our class!\"", word: "classroom", emoji: "🏫", audio: "classroom" },
+            { text: "She sits on her <b>chair</b>. \"This is my chair — so comfy!\"", word: "chair", emoji: "🪑", audio: "chair" },
+            { text: "She puts her book on the <b>desk</b>. \"My desk is ready for learning.\"", word: "desk", emoji: "___desk___", audio: "desk" },
+            { text: "The <b>door</b> opens. \"Someone is coming in!\"", word: "door", emoji: "🚪", audio: "door" },
+            { text: "The <b>teacher</b> writes on the <b>board</b>. \"Look at the board!\"", word: "board", emoji: "🖥️", audio: "board" },
+            { text: "\"Good morning!\" says the <b>teacher</b>. \"Let's begin our lesson.\"", word: "teacher", emoji: "👩‍🏫", audio: "teacher" },
+            { text: "Every <b>student</b> listens carefully. \"We are good students!\"", word: "student", emoji: "🧒", audio: "student" },
+            { text: "Oops! Elsa throws paper into the <b>trash can</b>. \"Where does trash go?\"", word: "trash can", emoji: "🗑️", audio: "trash can" },
+            { text: "Elsa drinks water from her <b>mug</b>. \"Stay hydrated!\"", word: "mug", emoji: "🍺", audio: "mug" },
+            { text: "The teacher says: \"Count to <b>ten</b>!\" 1, 2, 3... 10!", word: "ten", emoji: "🔟", audio: "ten" },
+            { text: "At home, Elsa jumps on her <b>bed</b>. \"Bouncy bed!\"", word: "bed", emoji: "🛏️", audio: "bed" },
+            { text: "A sign says: \"No running!\" Running is <b>banned</b>. \"I must walk.\"", word: "ban", emoji: "🚫", audio: "ban" },
+            { text: "Sometimes Elsa feels <b>mad</b>. \"But then I take a deep breath. I'm OK!\"", word: "mad", emoji: "😠", audio: "mad" }
+          ]
+        },
+        wordSearch: { gridSize: 7, words: ["CHAIR","DESK","DOOR","BOARD","TRASH","MUG","TEN","BED","BAN","MAD"] },
+        cloze: {
+          title: "In Our Classroom",
+          sentences: [
+            { text: "Elsa walks into the ___ and sits on her ___.", blanks: ["classroom", "chair"], emoji: "l3s0" },
+            { text: "She puts her book on the ___ and looks at the ___ .", blanks: ["desk", "board"], emoji: "l3s1" },
+            { text: "The ___ opens. The ___ comes in.", blanks: ["door", "teacher"], emoji: "l3s2" },
+            { text: "Every ___ listens and throws trash in the ___.", blanks: ["student", "trash can"], emoji: "l3s3" },
+            { text: "Elsa drinks from her ___ and counts to ___.", blanks: ["mug", "ten"], emoji: "l3s4" },
+            { text: "At home, she lies on her ___ to rest.", blanks: ["bed"], emoji: "l3s5" },
+            { text: "There is a ___ on running. Do not be ___!", blanks: ["ban", "mad"], emoji: "l3s6" }
+          ]
+        }
+      },
+      "review": {
+        title: "Review",
+        words: [],
+        spell: [
+          { word: "bag", hint: "b _ g", missing: ["a"], distractors: ["e","i","o","u"] },
+          { word: "book", hint: "b _ _ k", missing: ["o","o"], distractors: ["a","e","i","u"] },
+          { word: "pen", hint: "p _ n", missing: ["e"], distractors: ["a","i","o","u"] },
+          { word: "ruler", hint: "r _ l _ r", missing: ["u","e"], distractors: ["a","i","o"] },
+          { word: "eraser", hint: "e _ a s _ r", missing: ["r","e"], distractors: ["a","i","o","u"] },
+          { word: "scissors", hint: "s c _ s s _ r s", missing: ["i","o"], distractors: ["a","e","u"] },
+          { word: "draw", hint: "d r _ w", missing: ["a"], distractors: ["e","i","o","u"] },
+          { word: "write", hint: "w r _ t _", missing: ["i","e"], distractors: ["a","o","u"] },
+          { word: "fold", hint: "f _ l d", missing: ["o"], distractors: ["a","e","i","u"] },
+          { word: "cut", hint: "c _ t", missing: ["u"], distractors: ["a","e","i","o"] },
+          { word: "color", hint: "c _ l _ r", missing: ["o","o"], distractors: ["a","e","i","u"] },
+          { word: "open", hint: "o p _ n", missing: ["e"], distractors: ["a","i","o","u"] },
+          { word: "chair", hint: "c h _ _ r", missing: ["a","i"], distractors: ["e","o","u"] },
+          { word: "desk", hint: "d _ s k", missing: ["e"], distractors: ["a","i","o","u"] },
+          { word: "door", hint: "d _ _ r", missing: ["o","o"], distractors: ["a","e","i","u"] }
+        ],
+        story: { title: "Review", scenes: [] },
+        wordSearch: { gridSize: 7, words: ["BAG","PEN","NUT","BED","BUG","PET","CUT","GOT","GUM","DRAW","FOLD","DOOR","MUG","TEN","BAN","MAD"] },
+        cloze: {
+          title: "Elsa's School Day",
+          sentences: [
+            { text: "Elsa packs her ___ with a ___ and a ___.", blanks: ["bag", "book", "pencil"], emoji: "rvs0" },
+            { text: "At school, she sits on her ___ at her ___.", blanks: ["chair", "desk"], emoji: "rvs1" },
+            { text: "The ___ writes on the ___ and says hello.", blanks: ["teacher", "board"], emoji: "rvs2" },
+            { text: "Elsa will ___ a picture and ___ it blue.", blanks: ["draw", "color"], emoji: "rvs3" },
+            { text: "She will ___ the paper and ___ it with scissors.", blanks: ["fold", "cut"], emoji: "rvs4" },
+            { text: "She will ___ her supplies and ___ them away.", blanks: ["tidy", "put"], emoji: "rvs5" },
+            { text: "At home, she sees a ___ on her ___ near her ___.", blanks: ["bug", "bed", "pet"], emoji: "rvs6" }
+          ]
+        }
+      }
+    }
+  },
+
+  // ==================== UNIT 3 ====================
+  "3": {
+    title: "Unit 3",
+    lessons: {
+      "1": {
+        title: "Lesson 1 – Body Parts",
+        words: [
+          { en: "ears", zh: "耳朵", emoji: "👂", type: "noun" },
+          { en: "eyes", zh: "眼睛", emoji: "👁️", type: "noun" },
+          { en: "head", zh: "头", emoji: "🗣️", type: "noun" },
+          { en: "nose", zh: "鼻子", emoji: "👃", type: "noun" },
+          { en: "mouth", zh: "嘴", emoji: "👄", type: "noun" },
+          { en: "neck", zh: "脖子", emoji: "🧣", type: "noun" },
+          { en: "hair", zh: "头发", emoji: "💇", type: "noun" },
+          { en: "long", zh: "长的", emoji: "📏", type: "adj" },
+          { en: "short", zh: "短的", emoji: "📐", type: "adj" },
+          { en: "big", zh: "大的", emoji: "🔵", type: "adj" },
+          { en: "small", zh: "小的", emoji: "🔹", type: "adj" },
+          { en: "tip", zh: "提示/尖端", emoji: "💡", type: "noun" },
+          { en: "log", zh: "木头", emoji: "🪵", type: "noun" },
+          { en: "hen", zh: "母鸡", emoji: "🐔", type: "noun" },
+          { en: "lip", zh: "嘴唇", emoji: "💋", type: "noun" }
+        ],
+        story: { title: "My Body", scenes: [] },
+        wordSearch: { gridSize: 8, words: ["EARS","EYES","HEAD","NOSE","MOUTH","NECK","HAIR","LONG","SHORT","BIG","SMALL","TIP","LOG","HEN","LIP"] }
+      },
+      "2": {
+        title: "Lesson 2 – Body & Colors",
+        words: [
+          { en: "hand", zh: "手", emoji: "✋", type: "noun" },
+          { en: "foot", zh: "脚", emoji: "🦶", type: "noun" },
+          { en: "leg", zh: "腿", emoji: "🦵", type: "noun" },
+          { en: "arms", zh: "手臂", emoji: "💪", type: "noun" },
+          { en: "black", zh: "黑色", emoji: "⬛", type: "color" },
+          { en: "blond", zh: "金色", emoji: "💛", type: "color" },
+          { en: "blue", zh: "蓝色", emoji: "🔵", type: "color" },
+          { en: "brown", zh: "棕色", emoji: "🟤", type: "color" },
+          { en: "green", zh: "绿色", emoji: "🟢", type: "color" },
+          { en: "pink", zh: "粉色", emoji: "🩷", type: "color" },
+          { en: "red", zh: "红色", emoji: "🔴", type: "color" },
+          { en: "you", zh: "你", emoji: "👉", type: "pronoun" },
+          { en: "we", zh: "我们", emoji: "👥", type: "pronoun" },
+          { en: "he", zh: "他", emoji: "👨", type: "pronoun" },
+          { en: "she", zh: "她", emoji: "👩", type: "pronoun" }
+        ],
+        story: { title: "Colors Around Me", scenes: [] },
+        wordSearch: { gridSize: 8, words: ["HAND","FOOT","LEG","ARMS","BLACK","BLOND","BLUE","BROWN","GREEN","PINK","RED","YOU","WE","HE","SHE"] }
+      },
+      "3": {
+        title: "Lesson 3 – Numbers",
+        words: [
+          { en: "one", zh: "一", emoji: "1️⃣", type: "number" },
+          { en: "two", zh: "二", emoji: "2️⃣", type: "number" },
+          { en: "three", zh: "三", emoji: "3️⃣", type: "number" },
+          { en: "four", zh: "四", emoji: "4️⃣", type: "number" },
+          { en: "five", zh: "五", emoji: "5️⃣", type: "number" },
+          { en: "six", zh: "六", emoji: "6️⃣", type: "number" },
+          { en: "seven", zh: "七", emoji: "7️⃣", type: "number" },
+          { en: "eight", zh: "八", emoji: "8️⃣", type: "number" },
+          { en: "nine", zh: "九", emoji: "9️⃣", type: "number" },
+          { en: "ten", zh: "十", emoji: "🔟", type: "number" },
+          { en: "but", zh: "但是", emoji: "✋", type: "conj" },
+          { en: "clap", zh: "拍手", emoji: "👏", type: "verb" },
+          { en: "miss", zh: "想念/错过", emoji: "💭", type: "verb" },
+          { en: "skip", zh: "跳跃", emoji: "🦘", type: "verb" },
+          { en: "slip", zh: "滑倒", emoji: "💨", type: "verb" }
+        ],
+        story: { title: "Let's Count!", scenes: [] },
+        wordSearch: { gridSize: 8, words: ["ONE","TWO","THREE","FOUR","FIVE","SIX","SEVEN","EIGHT","NINE","TEN","BUT","CLAP","MISS","SKIP","SLIP"] }
+      }
+    }
+  },
+
+  // ==================== UNITS 4-6 (placeholder structure) ====================
+  "4": {
+    title: "Unit 4",
+    lessons: {
+      "1": { title: "Lesson 1 – Clothes", words: [], story: { title: "", scenes: [] }, wordSearch: { gridSize: 8, words: [] } },
+      "2": { title: "Lesson 2 – Colors & More", words: [], story: { title: "", scenes: [] }, wordSearch: { gridSize: 8, words: [] } },
+      "3": { title: "Lesson 3 – Actions", words: [], story: { title: "", scenes: [] }, wordSearch: { gridSize: 8, words: [] } }
+    }
+  },
+  "5": {
+    title: "Unit 5",
+    lessons: {
+      "1": { title: "Lesson 1 – Sports (-ing)", words: [], story: { title: "", scenes: [] }, wordSearch: { gridSize: 8, words: [] } },
+      "2": { title: "Lesson 2 – Sports", words: [], story: { title: "", scenes: [] }, wordSearch: { gridSize: 8, words: [] } },
+      "3": { title: "Lesson 3 – Phonics", words: [], story: { title: "", scenes: [] }, wordSearch: { gridSize: 8, words: [] } }
+    }
+  },
+  "6": {
+    title: "Unit 6",
+    lessons: {
+      "1": { title: "Lesson 1 – Animals", words: [], story: { title: "", scenes: [] }, wordSearch: { gridSize: 8, words: [] } },
+      "2": { title: "Lesson 2 – Verbs", words: [], story: { title: "", scenes: [] }, wordSearch: { gridSize: 8, words: [] } },
+      "3": { title: "Lesson 3 – Farm", words: [], story: { title: "", scenes: [] }, wordSearch: { gridSize: 8, words: [] } }
+    }
+  }
+};
+
+// ========================================
+// Gift Shop Items (Elsa's Wardrobe)
+// ========================================
+const GIFT_SHOP = {
+  food: [
+    { id: "f1", name: "Strawberry Cake", emoji: "🍰", cost: 3 },
+    { id: "f2", name: "Chocolate", emoji: "🍫", cost: 2 },
+    { id: "f3", name: "Ice Cream", emoji: "🍦", cost: 1 },
+    { id: "f4", name: "Blueberry Pie", emoji: "🥧", cost: 3 },
+    { id: "f5", name: "Snow Cookie", emoji: "🍪", cost: 2 }
+  ],
+  clothes: [
+    { id: "c1", name: "Ice Blue Dress", emoji: "👗", cost: 5 },
+    { id: "c2", name: "Purple Cape", emoji: "🧥", cost: 4 },
+    { id: "c3", name: "Snow Boots", emoji: "👢", cost: 3 },
+    { id: "c4", name: "Silver Gloves", emoji: "🧤", cost: 2 },
+    { id: "c5", name: "Crystal Crown Dress", emoji: "👘", cost: 6 }
+  ],
+  accessories: [
+    { id: "a1", name: "Crystal Crown", emoji: "👑", cost: 5 },
+    { id: "a2", name: "Snowflake Necklace", emoji: "📿", cost: 4 },
+    { id: "a3", name: "Ice Bracelet", emoji: "💎", cost: 3 },
+    { id: "a4", name: "Star Earrings", emoji: "⭐", cost: 2 },
+    { id: "a5", name: "Frozen Hairpin", emoji: "❄️", cost: 3 }
+  ]
+};
+
+// ========================================
+// Star rewards per stage
+// ========================================
+const STAGE_STARS = {
+  story: 2,      // Stage 1
+  listen: 3,     // Stage 2
+  wordsearch: 3, // Stage 3
+  match: 3,      // Stage 4
+  boss: 5        // Stage 5
+};
+
+</script>
+<script>
+// ========================================
+// localStorage Manager
+// ========================================
+
+const Storage = {
+  KEY: 'frozen_word_game',
+
+  // Default state
+  _default() {
+    return {
+      stars: 0,
+      // Per-unit, per-lesson, per-stage progress
+      // progress[unit][lesson] = { stage1: stars, stage2: stars, ... completed: bool }
+      progress: {},
+      // Inventory: array of purchased gift ids
+      inventory: [],
+      // Current Elsa outfit: { clothes: id|null, accessories: id|null }
+      outfit: { clothes: null, accessory: null },
+      // Highest unlocked unit/lesson
+      unlockedUnit: 2,
+      unlockedLesson: 1
+    };
+  },
+
+  // Load state
+  load() {
+    try {
+      const raw = localStorage.getItem(this.KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        // Merge with defaults to handle new fields
+        return { ...this._default(), ...data };
+      }
+    } catch (e) {}
+    return this._default();
+  },
+
+  // Save state
+  save(state) {
+    try {
+      localStorage.setItem(this.KEY, JSON.stringify(state));
+    } catch (e) {}
+  },
+
+  // Add stars
+  addStars(n) {
+    const s = this.load();
+    s.stars += n;
+    this.save(s);
+    return s.stars;
+  },
+
+  // Record stage completion and unlock logic
+  completeStage(unit, lesson, stage, starsEarned) {
+    const s = this.load();
+    if (!s.progress[unit]) s.progress[unit] = {};
+    if (!s.progress[unit][lesson]) s.progress[unit][lesson] = {};
+    s.progress[unit][lesson][stage] = starsEarned;
+    s.stars += starsEarned;
+
+    // Check if all 5 stages completed for this lesson
+    const lessonDone = ['story','listen','wordsearch','match','boss']
+      .every(st => s.progress[unit]?.[lesson]?.[st] !== undefined);
+
+    if (lessonDone) {
+      s.progress[unit][lesson].completed = true;
+      // Unlock next lesson or unit
+      this._unlockNext(s, unit, lesson);
+    }
+
+    this.save(s);
+    return s;
+  },
+
+  // Unlock next lesson
+  _unlockNext(s, unit, lesson) {
+    const units = Object.keys(WORD_DATA).sort((a,b)=>parseInt(a)-parseInt(b));
+    const unitData = WORD_DATA[unit];
+    const lessonKeys = Object.keys(unitData.lessons).sort((a,b)=>parseInt(a)-parseInt(b));
+    const lessonIdx = lessonKeys.indexOf(String(lesson));
+
+    if (lessonIdx < lessonKeys.length - 1) {
+      // Unlock next lesson in same unit
+      s.unlockedLesson = Math.max(s.unlockedLesson, parseInt(lessonKeys[lessonIdx + 1]));
+    } else {
+      // Unlock first lesson of next unit
+      const unitIdx = units.indexOf(String(unit));
+      if (unitIdx < units.length - 1) {
+        const nextUnit = parseInt(units[unitIdx + 1]);
+        if (nextUnit > s.unlockedUnit) {
+          s.unlockedUnit = nextUnit;
+          s.unlockedLesson = 1;
+        }
+      }
+    }
+  },
+
+  // Buy gift item
+  buyItem(itemId, category) {
+    const s = this.load();
+    const item = GIFT_SHOP[category].find(i => i.id === itemId);
+    if (!item) return { success: false, reason: 'Item not found' };
+    if (s.stars < item.cost) return { success: false, reason: 'Not enough stars' };
+    if (s.inventory.includes(itemId)) return { success: false, reason: 'Already owned' };
+
+    s.stars -= item.cost;
+    s.inventory.push(itemId);
+    this.save(s);
+    return { success: true, stars: s.stars };
+  },
+
+  // Equip outfit
+  equipOutfit(category, itemId) {
+    const s = this.load();
+    if (itemId && !s.inventory.includes(itemId)) return { success: false };
+    if (category === 'clothes') s.outfit.clothes = itemId;
+    else s.outfit.accessory = itemId;
+    this.save(s);
+    return { success: true };
+  },
+
+  // Get stage progress for a lesson
+  getProgress(unit, lesson) {
+    const s = this.load();
+    return s.progress[unit]?.[lesson] || {};
+  },
+
+  // Check if a lesson is unlocked
+  isUnlocked(unit, lesson) {
+    const s = this.load();
+    if (parseInt(unit) < s.unlockedUnit) return true;
+    if (parseInt(unit) === s.unlockedUnit && parseInt(lesson) <= s.unlockedLesson) return true;
+    return false;
+  },
+
+  // Get total stars
+  getStars() {
+    return this.load().stars;
+  },
+
+  // Get inventory
+  getInventory() {
+    return this.load().inventory;
+  },
+
+  // Get outfit
+  getOutfit() {
+    return this.load().outfit;
+  }
+};
+
+</script>
+<script>
+// ========================================
+// TTS (Text-to-Speech) Module
+// ========================================
+
+const TTS = {
+  synth: window.speechSynthesis,
+  speaking: false,
+  _pending: null,
+
+  // Quick reset for Chrome speech engine bug
+  async _ensureReady() {
+    if (!this.synth) return false;
+
+    // Chrome bug workaround: pause+cancel+resume in sequence
+    this.synth.pause();
+    this.synth.cancel();
+    this.synth.resume();
+    this.speaking = false;
+
+    // Minimal delay
+    await new Promise(r => setTimeout(r, 50));
+
+    // Load voices if needed (some browsers need this to work)
+    let voices = this.synth.getVoices();
+    if (voices.length === 0) {
+      // Wait for voices to load
+      await new Promise((resolve) => {
+        const check = () => {
+          voices = this.synth.getVoices();
+          if (voices.length > 0) {
+            resolve();
+          } else {
+            setTimeout(check, 100);
+          }
+        };
+        this.synth.onvoiceschanged = () => resolve();
+        setTimeout(() => resolve(), 800); // Failsafe
+      });
+    }
+
+    return true;
+  },
+
+  async speak(text) {
+    await this._ensureReady();
+
+    return new Promise((resolve) => {
+      if (!this.synth) { resolve(); return; }
+
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'en-US';
+      utter.rate = 0.8;
+      utter.pitch = 1.1;
+      utter.volume = 1.0;
+
+      let resolved = false;
+      this.speaking = true;
+
+      utter.onstart = () => {
+        this.speaking = true;
+      };
+
+      utter.onend = () => {
+        if (!resolved) {
+          resolved = true;
+          this.speaking = false;
+          resolve();
+        }
+      };
+
+      utter.onerror = (e) => {
+        // 'canceled' errors are normal after cancel(), ignore them
+        // Only treat real errors as failures
+        if (e.error === 'canceled' || e.error === 'interrupted') {
+          if (!resolved) {
+            resolved = true;
+            this.speaking = false;
+            resolve();
+          }
+        } else {
+          // Real error — wait and retry once
+          if (!resolved) {
+            resolved = true;
+            this.speaking = false;
+            resolve();
+          }
+        }
+      };
+
+      this.synth.speak(utter);
+
+      // Safety timeout
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          this.speaking = false;
+          resolve();
+        }
+      }, 15000);
+    });
+  },
+
+  async speakWord(word) {
+    await this._ensureReady();
+
+    return new Promise((resolve) => {
+      if (!this.synth) { resolve(); return; }
+
+      const utter = new SpeechSynthesisUtterance(word);
+      utter.lang = 'en-US';
+      utter.rate = 0.7;
+      utter.pitch = 1.1;
+      utter.volume = 1.0;
+
+      let resolved = false;
+      this.speaking = true;
+
+      utter.onstart = () => { this.speaking = true; };
+
+      utter.onend = () => {
+        if (!resolved) {
+          resolved = true;
+          this.speaking = false;
+          resolve();
+        }
+      };
+
+      utter.onerror = () => {
+        if (!resolved) {
+          resolved = true;
+          this.speaking = false;
+          resolve();
+        }
+      };
+
+      this.synth.speak(utter);
+
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          this.speaking = false;
+          resolve();
+        }
+      }, 8000);
+    });
+  },
+
+  stop() {
+    if (this.synth) {
+      this.synth.cancel();
+      this.speaking = false;
+    }
+  }
+};
+
+</script>
+
+<script>
+// ========================================
+// Login check — skip for debugging
+// ========================================
+const SKIP_LOGIN = true;
+
+// ========================================
+// Init
+// ========================================
+const state = Storage.load();
+
+function init() {
+  try {
+    var nUnits = typeof WORD_DATA !== 'undefined' ? Object.keys(WORD_DATA).length : 'WORD_DATA undefined!';
+    document.getElementById('elsaFigure').textContent = '👸 v' + nUnits;
+    updateStarDisplay();
+    renderUnits();
+  } catch(e) {
+    document.getElementById('unitGrid').innerHTML = '<div class="frost-card" style="margin:20px;padding:20px;background:#FFEBEE;border:3px solid #F44336;"><h2>❌ Error</h2><p>' + e.message + '</p></div>';
+  }
+}
+
+function logout() {
+  localStorage.removeItem('frozen_word_quest_login');
+  window.location.href = 'login.html';
+}
+
+function updateStarDisplay() {
+  const s = Storage.load();
+  document.getElementById('starCount').textContent = s.stars;
+  document.getElementById('shopStarCount').textContent = s.stars;
+}
+
+function renderUnits() {
+  const grid = document.getElementById('unitGrid');
+  grid.innerHTML = '';
+
+  for (const [unitId, unitData] of Object.entries(WORD_DATA)) {
+    const section = document.createElement('div');
+    section.className = 'unit-section';
+    section.innerHTML = `
+      <h2>
+        <span class="unit-num">❄️</span>
+        ${unitData.title}
+      </h2>
+    `;
+
+    const lessonGrid = document.createElement('div');
+    lessonGrid.className = 'lesson-grid';
+
+    for (const [lessonId, lessonData] of Object.entries(unitData.lessons)) {
+      const isReview = lessonId === 'review';
+      const hasWords = isReview || (lessonData.words && lessonData.words.length > 0);
+
+      // Get progress
+      const prog = Storage.getProgress(unitId, lessonId);
+      const stages = ['story','listen','wordsearch','match','boss'];
+      const completedStages = stages.filter(s => prog[s] !== undefined).length;
+      const lessonCompleted = prog.completed;
+
+      const card = document.createElement('a');
+      card.className = 'lesson-card';
+      if (isReview) card.style.borderColor = 'var(--frost-purple)';
+      if (isReview) card.style.borderWidth = '3px';
+
+      if (hasWords) {
+        card.href = isReview
+          ? `stages/1-flashcard.html?unit=${unitId}&lesson=review`
+          : `stages/1-story.html?unit=${unitId}&lesson=${lessonId}`;
+      }
+
+      // Stage dots
+      let dotsHtml = '';
+      stages.forEach((s, i) => {
+        let dotClass = '';
+        if (prog[s] !== undefined) dotClass = 'done';
+        else if (!lessonCompleted && i === completedStages) dotClass = 'current';
+        dotsHtml += `<span class="stage-dot ${dotClass}"></span>`;
+      });
+
+      const wordCount = isReview ? '39 words (Review)' : (lessonData.words ? lessonData.words.length + ' words' : 'Coming soon');
+      card.innerHTML = `
+        <div class="lesson-title">${isReview ? '🔄 ' : '📖 '}${lessonData.title}</div>
+        <div class="lesson-subtitle">${wordCount} · ${lessonCompleted ? '✅ Complete' : (completedStages > 0 ? completedStages + '/5 done' : '▶ Play')}</div>
+        <div class="stage-dots">${dotsHtml}</div>
+      `;
+
+      lessonGrid.appendChild(card);
+    }
+
+    section.appendChild(lessonGrid);
+    grid.appendChild(section);
+  }
+}
+
+// ========================================
+// Gift Shop
+// ========================================
+let currentMainTab = 'shop';
+let currentShopCategory = 'food';
+
+function openShop() {
+  document.getElementById('shopModal').classList.add('show');
+  document.getElementById('shopStarCount').textContent = Storage.load().stars;
+  switchMainTab('shop');
+}
+
+function closeShop() {
+  document.getElementById('shopModal').classList.remove('show');
+  updateStarDisplay();
+  renderUnits();
+  updateElsaAppearance();
+}
+
+// Main tab switch: Shop / Inventory / Dress Up
+function switchMainTab(tab) {
+  currentMainTab = tab;
+  // Highlight tab
+  document.querySelectorAll('#mainTabs .shop-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.maintab === tab);
+  });
+  // Show/hide sections
+  document.getElementById('subTabs').style.display = tab === 'shop' ? 'flex' : 'none';
+  document.getElementById('shopGrid').style.display = tab === 'shop' ? 'grid' : 'none';
+  document.getElementById('inventoryGrid').style.display = tab === 'inventory' ? 'grid' : 'none';
+  document.getElementById('dressupArea').style.display = tab === 'dressup' ? 'block' : 'none';
+
+  if (tab === 'shop') renderShop();
+  if (tab === 'inventory') renderInventory();
+  if (tab === 'dressup') renderDressUp();
+}
+
+// Shop sub-tabs
+function switchShopTab(cat) {
+  currentShopCategory = cat;
+  document.querySelectorAll('#subTabs .shop-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.shoptab === cat);
+  });
+  renderShop();
+}
+
+// Render shop (buy items)
+function renderShop() {
+  const grid = document.getElementById('shopGrid');
+  const s = Storage.load();
+  const items = GIFT_SHOP[currentShopCategory];
+
+  grid.innerHTML = items.map(item => {
+    const owned = s.inventory.includes(item.id);
+    const canBuy = !owned && s.stars >= item.cost;
+
+    return `
+      <div class="shop-item ${owned ? 'owned' : ''}" onclick="${owned ? '' : `buyItem('${item.id}', '${currentShopCategory}')`}">
+        <span class="item-emoji">${item.emoji}</span>
+        <span class="item-name">${item.name}</span>
+        ${owned ? '<span class="equipped-badge" style="background:#4CAF50;">Owned</span>' :
+          `<span class="item-cost">⭐ ${item.cost}</span>`}
+      </div>
+    `;
+  }).join('');
+}
+
+function buyItem(itemId, category) {
+  const result = Storage.buyItem(itemId, category);
+  if (result.success) {
+    const item = GIFT_SHOP[category].find(i => i.id === itemId);
+    showStarsEarned(-1 * item.cost);
+    updateStarDisplay();
+    renderShop();
+  } else {
+    alert(result.reason === 'Not enough stars' ? 'Not enough stars! ⭐ Complete more stages to earn stars.' : result.reason);
+  }
+}
+
+// Render inventory (my items)
+function renderInventory() {
+  const grid = document.getElementById('inventoryGrid');
+  const s = Storage.load();
+  let allOwned = [];
+
+  for (const [cat, items] of Object.entries(GIFT_SHOP)) {
+    items.forEach(item => {
+      if (s.inventory.includes(item.id)) {
+        allOwned.push({ ...item, category: cat });
+      }
+    });
+  }
+
+  if (allOwned.length === 0) {
+    grid.innerHTML = '<p style="text-align:center;color:var(--text-light);grid-column:1/-1;padding:20px;">No items yet. Earn stars and buy gifts!</p>';
+    return;
+  }
+
+  grid.innerHTML = allOwned.map(item => {
+    const equipped = (item.category === 'clothes' && s.outfit.clothes === item.id) ||
+                    (item.category === 'accessories' && s.outfit.accessory === item.id);
+    return `
+      <div class="shop-item owned">
+        <span class="item-emoji">${item.emoji}</span>
+        <span class="item-name">${item.name}</span>
+        ${equipped ? '<span class="equipped-badge">Wearing</span>' :
+          `<span class="equipped-badge" style="background:#4CAF50;">Owned</span>`}
+      </div>
+    `;
+  }).join('');
+}
+
+// Render dress-up area
+function renderDressUp() {
+  const s = Storage.load();
+  const grid = document.getElementById('dressupItems');
+
+  // Update Elsa's look
+  updateDressUpElsa();
+
+  // Show owned clothes + accessories
+  let dressItems = [];
+  for (const cat of ['clothes', 'accessories']) {
+    GIFT_SHOP[cat].forEach(item => {
+      if (s.inventory.includes(item.id)) {
+        dressItems.push({ ...item, category: cat });
+      }
+    });
+  }
+
+  if (dressItems.length === 0) {
+    grid.innerHTML = '<p style="text-align:center;color:var(--text-light);grid-column:1/-1;padding:20px;">Buy some clothes first! Go to 🛍️ Shop.</p>';
+    return;
+  }
+
+  grid.innerHTML = dressItems.map(item => {
+    const equipped = (item.category === 'clothes' && s.outfit.clothes === item.id) ||
+                    (item.category === 'accessories' && s.outfit.accessory === item.id);
+    return `
+      <div class="shop-item ${equipped ? 'owned' : ''}"
+           style="${equipped ? 'border-color:var(--frost-purple);border-width:3px;' : ''}"
+           onclick="equipOnElsa('${item.id}', '${item.category}')">
+        <span class="item-emoji">${item.emoji}</span>
+        <span class="item-name">${item.name}</span>
+        ${equipped ? '<span class="equipped-badge">Wearing</span>' : '<span style="font-size:0.65rem;color:var(--frost-purple);">Tap to wear</span>'}
+      </div>
+    `;
+  }).join('');
+}
+
+function equipOnElsa(itemId, category) {
+  const s = Storage.load();
+  // If already equipped, unequip it
+  if ((category === 'clothes' && s.outfit.clothes === itemId) ||
+      (category === 'accessories' && s.outfit.accessory === itemId)) {
+    Storage.equipOutfit(category, null);
+  } else {
+    Storage.equipOutfit(category, itemId);
+  }
+  renderDressUp();
+  updateElsaAppearance();
+  updateDressUpElsa();
+}
+
+function updateDressUpElsa() {
+  const s = Storage.load();
+  const accLayer = document.getElementById('elsaAccLayer');
+  const clothLayer = document.getElementById('elsaClothesLayer');
+
+  if (s.outfit.accessory) {
+    const acc = GIFT_SHOP.accessories.find(i => i.id === s.outfit.accessory);
+    accLayer.textContent = acc ? acc.emoji : '';
+  } else {
+    accLayer.textContent = '';
+  }
+
+  if (s.outfit.clothes) {
+    const cloth = GIFT_SHOP.clothes.find(i => i.id === s.outfit.clothes);
+    clothLayer.textContent = cloth ? cloth.emoji : '';
+  } else {
+    clothLayer.textContent = '';
+  }
+}
+
+// Update main page Elsa — always show just the basic Elsa
+function updateElsaAppearance() {
+  document.getElementById('elsaFigure').textContent = '👸';
+}
+
+// Allow equipping null (unequip) in storage
+// (storage.js already handles this — equipOutfit with null works)
+
+function showStarsEarned(amount) {
+  const el = document.createElement('div');
+  el.className = 'stars-earned';
+  el.textContent = amount > 0 ? `+${amount} ⭐` : `${amount} ⭐`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+// Init on load
+init();
+updateElsaAppearance();
+</script>
+
+</body>
+</html>

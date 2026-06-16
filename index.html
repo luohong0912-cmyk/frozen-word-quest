@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frozen Word Quest — Elsa's Ice Palace</title>
+<link rel="stylesheet" href="shared/frozen-theme.css">
+<style>
+  .container { max-width: 800px; margin: 0 auto; padding: 0 16px 40px; position: relative; z-index: 1; }
+
+  /* Top bar */
+  .top-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; gap: 12px; flex-wrap: wrap;
+  }
+
+  /* Elsa's Castle */
+  .elsa-stage {
+    text-align: center; padding: 20px 16px; position: relative;
+  }
+  .elsa-figure {
+    font-size: 120px; position: relative; display: inline-block;
+    transition: all 0.4s;
+    filter: drop-shadow(0 8px 20px rgba(135,206,235,0.5));
+  }
+  .elsa-platform {
+    width: 160px; height: 12px; margin: 0 auto 8px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), rgba(255,255,255,0.8), rgba(255,255,255,0.4), transparent);
+    border-radius: 50%;
+  }
+
+  /* Snowflakes around Elsa */
+  .snowflake-deco {
+    position: absolute; font-size: 28px; animation: floatSnow 3s ease-in-out infinite;
+  }
+  .snowflake-deco:nth-child(1) { top: 10px; left: 10px; animation-delay: 0s; }
+  .snowflake-deco:nth-child(2) { top: 20px; right: 10px; animation-delay: 0.8s; }
+  .snowflake-deco:nth-child(3) { bottom: 30px; left: 0; animation-delay: 1.6s; }
+  .snowflake-deco:nth-child(4) { bottom: 20px; right: 5px; animation-delay: 2.4s; }
+  @keyframes floatSnow {
+    0%,100% { transform: translateY(0) rotate(0deg); opacity: 0.7; }
+    50% { transform: translateY(-12px) rotate(180deg); opacity: 1; }
+  }
+
+  /* Unit & Lesson grid */
+  .unit-section { margin-top: 12px; }
+  .unit-section h2 {
+    font-size: 1.2rem; color: var(--deep-blue); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .unit-section h2 .unit-num {
+    display: inline-flex; width: 32px; height: 32px; border-radius: 50%;
+    background: var(--frost-purple); color: white; align-items: center; justify-content: center;
+    font-size: 0.9rem;
+  }
+  .unit-section.locked h2 .unit-num { background: #aaa; }
+  .unit-section.locked { opacity: 0.6; }
+
+  .lesson-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px; margin-bottom: 16px;
+  }
+  .lesson-card {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(8px);
+    border-radius: var(--radius-sm);
+    border: 2px solid rgba(255,255,255,0.8);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: var(--text-dark);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .lesson-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+  .lesson-card.locked {
+    opacity: 0.5; cursor: not-allowed;
+    pointer-events: none;
+    filter: grayscale(40%);
+  }
+  .lesson-card .lesson-title {
+    font-weight: 700; font-size: 0.95rem;
+  }
+  .lesson-card .lesson-subtitle {
+    font-size: 0.75rem; color: var(--text-light);
+  }
+  .lesson-card .stage-dots {
+    display: flex; gap: 3px;
+  }
+  .stage-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: rgba(255,255,255,0.7);
+    border: 1.5px solid var(--frost-silver);
+  }
+  .stage-dot.done {
+    background: var(--correct-green); border-color: white;
+  }
+  .stage-dot.current {
+    background: var(--star-yellow); border-color: white;
+  }
+
+  /* Gift Shop Modal */
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%; z-index: 1000;
+    background: rgba(0,0,0,0.5);
+    justify-content: center; align-items: center;
+  }
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: white;
+    border-radius: var(--radius);
+    padding: 24px;
+    max-width: 580px; width: 94%; max-height: 88vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    border: 3px solid var(--ice-light);
+  }
+  .modal h3 {
+    text-align: center; font-size: 1.3rem; color: var(--deep-blue); margin-bottom: 16px;
+  }
+  .modal .close-btn {
+    position: absolute; top: 12px; right: 16px;
+    font-size: 1.5rem; cursor: pointer; color: var(--text-light);
+    background: none; border: none;
+  }
+  .shop-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+  }
+  .shop-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 12px 8px; border-radius: var(--radius-sm);
+    background: var(--snow-white); border: 2px solid var(--ice-light);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .shop-item:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .shop-item.owned { border-color: var(--correct-green); background: #E8F5E9; }
+  .shop-item .item-emoji { font-size: 2rem; }
+  .shop-item .item-name { font-size: 0.75rem; font-weight: 600; text-align: center; }
+  .shop-item .item-cost { font-size: 0.7rem; color: var(--gold); }
+
+  /* Equipped badge */
+  .equipped-badge {
+    font-size: 0.65rem; background: var(--frost-purple); color: white;
+    padding: 2px 8px; border-radius: 10px;
+  }
+
+  /* Tab navigation for shop */
+  .shop-tabs {
+    display: flex; gap: 4px; margin-bottom: 12px; justify-content: center;
+  }
+  .shop-tab {
+    padding: 6px 16px; border-radius: 16px;
+    background: rgba(255,255,255,0.6); border: 1px solid var(--ice-light);
+    cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    transition: all 0.2s;
+  }
+  .shop-tab.active {
+    background: var(--frost-purple); color: white; border-color: var(--frost-purple);
+  }
+
+  /* Sparkle animation for earning stars */
+  .stars-earned {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 3rem; z-index: 2000; pointer-events: none;
+    animation: starUp 1.5s ease-out forwards;
+  }
+  @keyframes starUp {
+    0% { opacity: 1; transform: translate(-50%,-50%) scale(0.5); }
+    50% { opacity: 1; transform: translate(-50%,-80%) scale(1.3); }
+    100% { opacity: 0; transform: translate(-50%,-120%) scale(0.8); }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="star-bar" id="starBar">
+      <span class="star-icon">⭐</span>
+      <span id="starCount">0</span>
+    </div>
+    <button class="ice-btn purple" onclick="openShop()">🎁 Gift Shop</button>
+    <button class="ice-btn" onclick="logout()" style="font-size:0.8rem;padding:6px 14px;">🚪 Leave</button>
+  </div>
+
+  <!-- Elsa Stage -->
+  <div class="elsa-stage">
+    <div class="elsa-figure" id="elsaFigure">👸</div>
+    <div class="elsa-platform"></div>
+    <p style="color:var(--deep-blue);font-weight:700;margin-top:4px;">Elsa's Ice Palace</p>
+  </div>
+
+  <!-- Unit & Lesson Grid -->
+  <div id="unitGrid"></div>
+
+</div>
+
+<!-- Gift Shop Modal -->
+<div class="modal-overlay" id="shopModal">
+  <div class="modal" id="shopModalInner">
+    <button class="close-btn" onclick="closeShop()">✕</button>
+    <h3>🎁 Elsa's Gift Shop</h3>
+    <div class="star-bar" style="justify-content:center;margin-bottom:12px;">
+      <span class="star-icon">⭐</span>
+      <span id="shopStarCount">0</span>
+      <span>available</span>
+    </div>
+
+    <!-- Main Tabs -->
+    <div class="shop-tabs" id="mainTabs">
+      <button class="shop-tab active" data-maintab="shop" onclick="switchMainTab('shop')">🛍️ Shop</button>
+      <button class="shop-tab" data-maintab="inventory" onclick="switchMainTab('inventory')">🎒 My Items</button>
+      <button class="shop-tab" data-maintab="dressup" onclick="switchMainTab('dressup')">👗 Dress Up</button>
+    </div>
+
+    <!-- Sub-tabs for Shop (food/clothes/accessories) -->
+    <div class="shop-tabs" id="subTabs">
+      <button class="shop-tab active" data-shoptab="food" onclick="switchShopTab('food')">🍰 Food</button>
+      <button class="shop-tab" data-shoptab="clothes" onclick="switchShopTab('clothes')">👗 Clothes</button>
+      <button class="shop-tab" data-shoptab="accessories" onclick="switchShopTab('accessories')">💎 Accessories</button>
+    </div>
+
+    <!-- Shop Grid -->
+    <div class="shop-grid" id="shopGrid"></div>
+
+    <!-- Inventory Grid -->
+    <div class="shop-grid" id="inventoryGrid" style="display:none;"></div>
+
+    <!-- Dress Up Area -->
+    <div id="dressupArea" style="display:none;text-align:center;">
+      <div id="elsaFullBody" style="position:relative;width:240px;height:340px;margin:8px auto;">
+        <!-- Head -->
+        <div id="elsaHead" style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:80px;height:80px;background:#FFE0BD;border-radius:50%;border:2px solid #E8C9A0;z-index:5;">
+          <!-- Hair -->
+          <div style="position:absolute;top:-10px;left:-6px;width:92px;height:55px;background:#FFD54F;border-radius:50% 50% 0 0;"></div>
+          <!-- Braid -->
+          <div style="position:absolute;top:28px;left:-12px;width:14px;height:55px;background:#FFD54F;border-radius:0 0 7px 7px;"></div>
+          <!-- Eyes -->
+          <div style="position:absolute;top:30px;left:18px;width:8px;height:10px;background:white;border-radius:50%;"></div>
+          <div style="position:absolute;top:31px;left:20px;width:4px;height:4px;background:#333;border-radius:50%;"></div>
+          <div style="position:absolute;top:30px;left:48px;width:8px;height:10px;background:white;border-radius:50%;"></div>
+          <div style="position:absolute;top:31px;left:50px;width:4px;height:4px;background:#333;border-radius:50%;"></div>
+          <!-- Smile -->
+          <div style="position:absolute;top:46px;left:28px;width:18px;height:7px;border-bottom:2.5px solid #E57373;border-radius:0 0 9px 9px;"></div>
+          <!-- Blush -->
+          <div style="position:absolute;top:38px;left:10px;width:11px;height:6px;background:#FFCDD2;border-radius:50%;opacity:0.6;"></div>
+          <div style="position:absolute;top:38px;left:54px;width:11px;height:6px;background:#FFCDD2;border-radius:50%;opacity:0.6;"></div>
+        </div>
+        <!-- Neck -->
+        <div style="position:absolute;top:78px;left:50%;transform:translateX(-50%);width:20px;height:14px;background:#FFE0BD;z-index:4;"></div>
+        <!-- Body/Torso -->
+        <div id="elsaTorso" style="position:absolute;top:90px;left:50%;transform:translateX(-50%);width:66px;height:70px;background:#64B5F6;border-radius:14px 14px 3px 3px;z-index:3;">
+          <!-- Belt -->
+          <div style="position:absolute;top:0;left:7px;width:52px;height:5px;background:#0D47A1;border-radius:2px;"></div>
+          <!-- Snowflake -->
+          <div style="position:absolute;top:22px;left:20px;font-size:18px;color:white;opacity:0.3;">❄</div>
+        </div>
+        <!-- Arms -->
+        <div style="position:absolute;top:96px;left:62px;width:13px;height:52px;background:#FFE0BD;border-radius:6px;z-index:2;"></div>
+        <div style="position:absolute;top:96px;right:62px;width:13px;height:52px;background:#FFE0BD;border-radius:6px;z-index:2;"></div>
+        <!-- Dress/skirt overlay -->
+        <div id="elsaClothesLayer" style="position:absolute;top:80px;left:50%;transform:translateX(-50%);font-size:90px;z-index:4;pointer-events:none;line-height:1;"></div>
+        <!-- Legs -->
+        <div style="position:absolute;top:158px;left:54px;width:14px;height:50px;background:#FFE0BD;border-radius:7px;z-index:2;"></div>
+        <div style="position:absolute;top:158px;right:54px;width:14px;height:50px;background:#FFE0BD;border-radius:7px;z-index:2;"></div>
+        <!-- Shoes -->
+        <div style="position:absolute;top:204px;left:48px;width:22px;height:10px;background:#1565C0;border-radius:10px 4px 4px 10px;z-index:2;"></div>
+        <div style="position:absolute;top:204px;right:48px;width:22px;height:10px;background:#1565C0;border-radius:4px 10px 10px 4px;z-index:2;"></div>
+        <!-- Accessory overlay -->
+        <div id="elsaAccLayer" style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:42px;z-index:6;pointer-events:none;line-height:1;"></div>
+      </div>
+      <p style="font-size:0.8rem;color:var(--text-light);margin-top:4px;">Click an item below to dress Elsa</p>
+      <div class="shop-grid" id="dressupItems"></div>
+    </div>
+  </div>
+</div>
+
+<script src="data/words.js"></script>
+<script src="shared/storage.js"></script>
+<script src="shared/tts.js"></script>
+
+<script>
+// ========================================
+// Login check — skip for debugging
+// ========================================
+const SKIP_LOGIN = true;
+
+// ========================================
+// Init
+// ========================================
+const state = Storage.load();
+
+function init() {
+  try {
+    var nUnits = typeof WORD_DATA !== 'undefined' ? Object.keys(WORD_DATA).length : 'WORD_DATA undefined!';
+    document.getElementById('elsaFigure').textContent = '👸 v' + nUnits;
+    updateStarDisplay();
+    renderUnits();
+  } catch(e) {
+    document.getElementById('unitGrid').innerHTML = '<div class="frost-card" style="margin:20px;padding:20px;background:#FFEBEE;border:3px solid #F44336;"><h2>❌ Error</h2><p>' + e.message + '</p></div>';
+  }
+}
+
+function logout() {
+  localStorage.removeItem('frozen_word_quest_login');
+  window.location.href = 'login.html';
+}
+
+function updateStarDisplay() {
+  const s = Storage.load();
+  document.getElementById('starCount').textContent = s.stars;
+  document.getElementById('shopStarCount').textContent = s.stars;
+}
+
+function renderUnits() {
+  const grid = document.getElementById('unitGrid');
+  grid.innerHTML = '';
+
+  for (const [unitId, unitData] of Object.entries(WORD_DATA)) {
+    const section = document.createElement('div');
+    section.className = 'unit-section';
+    section.innerHTML = `
+      <h2>
+        <span class="unit-num">❄️</span>
+        ${unitData.title}
+      </h2>
+    `;
+
+    const lessonGrid = document.createElement('div');
+    lessonGrid.className = 'lesson-grid';
+
+    for (const [lessonId, lessonData] of Object.entries(unitData.lessons)) {
+      const isReview = lessonId === 'review';
+      const hasWords = isReview || (lessonData.words && lessonData.words.length > 0);
+
+      // Get progress
+      const prog = Storage.getProgress(unitId, lessonId);
+      const stages = ['story','listen','wordsearch','match','boss'];
+      const completedStages = stages.filter(s => prog[s] !== undefined).length;
+      const lessonCompleted = prog.completed;
+
+      const card = document.createElement('a');
+      card.className = 'lesson-card';
+      if (isReview) card.style.borderColor = 'var(--frost-purple)';
+      if (isReview) card.style.borderWidth = '3px';
+
+      if (hasWords) {
+        card.href = isReview
+          ? `stages/1-flashcard.html?unit=${unitId}&lesson=review`
+          : `stages/1-story.html?unit=${unitId}&lesson=${lessonId}`;
+      }
+
+      // Stage dots
+      let dotsHtml = '';
+      stages.forEach((s, i) => {
+        let dotClass = '';
+        if (prog[s] !== undefined) dotClass = 'done';
+        else if (!lessonCompleted && i === completedStages) dotClass = 'current';
+        dotsHtml += `<span class="stage-dot ${dotClass}"></span>`;
+      });
+
+      const wordCount = isReview ? '39 words (Review)' : (lessonData.words ? lessonData.words.length + ' words' : 'Coming soon');
+      card.innerHTML = `
+        <div class="lesson-title">${isReview ? '🔄 ' : '📖 '}${lessonData.title}</div>
+        <div class="lesson-subtitle">${wordCount} · ${lessonCompleted ? '✅ Complete' : (completedStages > 0 ? completedStages + '/5 done' : '▶ Play')}</div>
+        <div class="stage-dots">${dotsHtml}</div>
+      `;
+
+      lessonGrid.appendChild(card);
+    }
+
+    section.appendChild(lessonGrid);
+    grid.appendChild(section);
+  }
+}
+
+// ========================================
+// Gift Shop
+// ========================================
+let currentMainTab = 'shop';
+let currentShopCategory = 'food';
+
+function openShop() {
+  document.getElementById('shopModal').classList.add('show');
+  document.getElementById('shopStarCount').textContent = Storage.load().stars;
+  switchMainTab('shop');
+}
+
+function closeShop() {
+  document.getElementById('shopModal').classList.remove('show');
+  updateStarDisplay();
+  renderUnits();
+  updateElsaAppearance();
+}
+
+// Main tab switch: Shop / Inventory / Dress Up
+function switchMainTab(tab) {
+  currentMainTab = tab;
+  // Highlight tab
+  document.querySelectorAll('#mainTabs .shop-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.maintab === tab);
+  });
+  // Show/hide sections
+  document.getElementById('subTabs').style.display = tab === 'shop' ? 'flex' : 'none';
+  document.getElementById('shopGrid').style.display = tab === 'shop' ? 'grid' : 'none';
+  document.getElementById('inventoryGrid').style.display = tab === 'inventory' ? 'grid' : 'none';
+  document.getElementById('dressupArea').style.display = tab === 'dressup' ? 'block' : 'none';
+
+  if (tab === 'shop') renderShop();
+  if (tab === 'inventory') renderInventory();
+  if (tab === 'dressup') renderDressUp();
+}
+
+// Shop sub-tabs
+function switchShopTab(cat) {
+  currentShopCategory = cat;
+  document.querySelectorAll('#subTabs .shop-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.shoptab === cat);
+  });
+  renderShop();
+}
+
+// Render shop (buy items)
+function renderShop() {
+  const grid = document.getElementById('shopGrid');
+  const s = Storage.load();
+  const items = GIFT_SHOP[currentShopCategory];
+
+  grid.innerHTML = items.map(item => {
+    const owned = s.inventory.includes(item.id);
+    const canBuy = !owned && s.stars >= item.cost;
+
+    return `
+      <div class="shop-item ${owned ? 'owned' : ''}" onclick="${owned ? '' : `buyItem('${item.id}', '${currentShopCategory}')`}">
+        <span class="item-emoji">${item.emoji}</span>
+        <span class="item-name">${item.name}</span>
+        ${owned ? '<span class="equipped-badge" style="background:#4CAF50;">Owned</span>' :
+          `<span class="item-cost">⭐ ${item.cost}</span>`}
+      </div>
+    `;
+  }).join('');
+}
+
+function buyItem(itemId, category) {
+  const result = Storage.buyItem(itemId, category);
+  if (result.success) {
+    const item = GIFT_SHOP[category].find(i => i.id === itemId);
+    showStarsEarned(-1 * item.cost);
+    updateStarDisplay();
+    renderShop();
+  } else {
+    alert(result.reason === 'Not enough stars' ? 'Not enough stars! ⭐ Complete more stages to earn stars.' : result.reason);
+  }
+}
+
+// Render inventory (my items)
+function renderInventory() {
+  const grid = document.getElementById('inventoryGrid');
+  const s = Storage.load();
+  let allOwned = [];
+
+  for (const [cat, items] of Object.entries(GIFT_SHOP)) {
+    items.forEach(item => {
+      if (s.inventory.includes(item.id)) {
+        allOwned.push({ ...item, category: cat });
+      }
+    });
+  }
+
+  if (allOwned.length === 0) {
+    grid.innerHTML = '<p style="text-align:center;color:var(--text-light);grid-column:1/-1;padding:20px;">No items yet. Earn stars and buy gifts!</p>';
+    return;
+  }
+
+  grid.innerHTML = allOwned.map(item => {
+    const equipped = (item.category === 'clothes' && s.outfit.clothes === item.id) ||
+                    (item.category === 'accessories' && s.outfit.accessory === item.id);
+    return `
+      <div class="shop-item owned">
+        <span class="item-emoji">${item.emoji}</span>
+        <span class="item-name">${item.name}</span>
+        ${equipped ? '<span class="equipped-badge">Wearing</span>' :
+          `<span class="equipped-badge" style="background:#4CAF50;">Owned</span>`}
+      </div>
+    `;
+  }).join('');
+}
+
+// Render dress-up area
+function renderDressUp() {
+  const s = Storage.load();
+  const grid = document.getElementById('dressupItems');
+
+  // Update Elsa's look
+  updateDressUpElsa();
+
+  // Show owned clothes + accessories
+  let dressItems = [];
+  for (const cat of ['clothes', 'accessories']) {
+    GIFT_SHOP[cat].forEach(item => {
+      if (s.inventory.includes(item.id)) {
+        dressItems.push({ ...item, category: cat });
+      }
+    });
+  }
+
+  if (dressItems.length === 0) {
+    grid.innerHTML = '<p style="text-align:center;color:var(--text-light);grid-column:1/-1;padding:20px;">Buy some clothes first! Go to 🛍️ Shop.</p>';
+    return;
+  }
+
+  grid.innerHTML = dressItems.map(item => {
+    const equipped = (item.category === 'clothes' && s.outfit.clothes === item.id) ||
+                    (item.category === 'accessories' && s.outfit.accessory === item.id);
+    return `
+      <div class="shop-item ${equipped ? 'owned' : ''}"
+           style="${equipped ? 'border-color:var(--frost-purple);border-width:3px;' : ''}"
+           onclick="equipOnElsa('${item.id}', '${item.category}')">
+        <span class="item-emoji">${item.emoji}</span>
+        <span class="item-name">${item.name}</span>
+        ${equipped ? '<span class="equipped-badge">Wearing</span>' : '<span style="font-size:0.65rem;color:var(--frost-purple);">Tap to wear</span>'}
+      </div>
+    `;
+  }).join('');
+}
+
+function equipOnElsa(itemId, category) {
+  const s = Storage.load();
+  // If already equipped, unequip it
+  if ((category === 'clothes' && s.outfit.clothes === itemId) ||
+      (category === 'accessories' && s.outfit.accessory === itemId)) {
+    Storage.equipOutfit(category, null);
+  } else {
+    Storage.equipOutfit(category, itemId);
+  }
+  renderDressUp();
+  updateElsaAppearance();
+  updateDressUpElsa();
+}
+
+function updateDressUpElsa() {
+  const s = Storage.load();
+  const accLayer = document.getElementById('elsaAccLayer');
+  const clothLayer = document.getElementById('elsaClothesLayer');
+
+  if (s.outfit.accessory) {
+    const acc = GIFT_SHOP.accessories.find(i => i.id === s.outfit.accessory);
+    accLayer.textContent = acc ? acc.emoji : '';
+  } else {
+    accLayer.textContent = '';
+  }
+
+  if (s.outfit.clothes) {
+    const cloth = GIFT_SHOP.clothes.find(i => i.id === s.outfit.clothes);
+    clothLayer.textContent = cloth ? cloth.emoji : '';
+  } else {
+    clothLayer.textContent = '';
+  }
+}
+
+// Update main page Elsa — always show just the basic Elsa
+function updateElsaAppearance() {
+  document.getElementById('elsaFigure').textContent = '👸';
+}
+
+// Allow equipping null (unequip) in storage
+// (storage.js already handles this — equipOutfit with null works)
+
+function showStarsEarned(amount) {
+  const el = document.createElement('div');
+  el.className = 'stars-earned';
+  el.textContent = amount > 0 ? `+${amount} ⭐` : `${amount} ⭐`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+// Init on load
+init();
+updateElsaAppearance();
+</script>
+
+</body>
+</html>

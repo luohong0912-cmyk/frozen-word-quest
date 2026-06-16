@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stage 4 — Picture Match</title>
+<link rel="stylesheet" href="../shared/frozen-theme.css">
+<style>
+  .container { max-width: 750px; margin: 0 auto; padding: 0 16px 40px; position: relative; z-index: 1; }
+
+  .stage-nav {
+    display: flex; justify-content: center; gap: 8px; padding: 12px; flex-wrap: wrap;
+  }
+  .stage-nav a {
+    text-decoration: none; padding: 6px 14px; border-radius: 20px;
+    font-size: 0.8rem; font-weight: 600;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.6);
+    color: var(--text-light);
+  }
+  .stage-nav a.active {
+    background: linear-gradient(135deg, var(--ice-blue), var(--ice-light));
+    color: var(--deep-blue); border-color: white;
+  }
+  .stage-nav a.done { background: var(--correct-green); color: white; border-color: white; }
+
+  .score-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 16px; gap: 12px; flex-wrap: wrap;
+  }
+
+  /* Match area */
+  .match-area {
+    display: flex; gap: 30px; justify-content: center;
+    padding: 12px; flex-wrap: wrap;
+  }
+  .match-column {
+    display: flex; flex-direction: column; gap: 10px;
+    min-width: 130px;
+  }
+  .match-column h3 {
+    text-align: center; font-size: 0.85rem;
+    color: var(--text-light); margin-bottom: 4px;
+  }
+
+  .match-card {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    background: white; border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+    cursor: pointer; border: 3px solid transparent;
+    transition: all 0.2s; user-select: none;
+    min-height: 52px; justify-content: center;
+  }
+  .match-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+
+  .match-card.selected {
+    border-color: var(--ice-blue);
+    background: var(--ice-pale);
+    box-shadow: 0 0 0 4px rgba(135,206,235,0.3);
+  }
+  .match-card.matched {
+    border-color: var(--correct-green);
+    background: #E8F5E9;
+    opacity: 0.7; cursor: default; pointer-events: none;
+  }
+  .match-card.wrong-flash {
+    border-color: var(--wrong-red);
+    background: #FFEBEE;
+    animation: shake 0.4s ease;
+  }
+
+  .match-card .match-emoji { font-size: 2rem; }
+  .match-card .match-word {
+    font-weight: 700; font-size: 1.05rem;
+    color: var(--deep-blue);
+  }
+
+  /* Lines connecting matched pairs */
+  .match-connections {
+    display: flex; flex-direction: column; gap: 10px;
+    justify-content: center; align-items: center;
+    min-width: 40px;
+  }
+  .match-connector {
+    width: 36px; height: 52px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem; color: var(--correct-green);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .match-connector.connected { opacity: 1; }
+
+  /* Mode toggle */
+  .mode-toggle {
+    text-align: center; padding: 8px;
+  }
+
+  /* Complete */
+  .complete-section {
+    text-align: center; padding: 30px; animation: popIn 0.5s ease-out;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="page-header">
+    <h1>🖼️ Stage 4: Picture Match</h1>
+    <p class="subtitle">Match each word to the right picture!</p>
+  </div>
+
+  <div class="stage-nav" id="stageNav"></div>
+
+  <div id="gameArea">
+    <div class="score-bar">
+      <div class="star-bar"><span>⭐</span><span id="matchScore">0</span>/<span id="matchTotal">0</span></div>
+      <div class="progress-bar" style="max-width:180px;">
+        <div class="fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <button class="ice-btn" onclick="shuffleAll()" style="font-size:0.85rem;padding:6px 16px;">🔀 Shuffle</button>
+    </div>
+
+    <div class="mode-toggle">
+      <button class="ice-btn purple" onclick="toggleMode()" style="font-size:0.85rem;">
+        <span id="modeLabel">Mode: Word → Picture</span>
+      </button>
+    </div>
+
+    <div class="match-area">
+      <div class="match-column" id="leftCol">
+        <h3>📝 Words</h3>
+      </div>
+      <div class="match-connections" id="matchConnectors"></div>
+      <div class="match-column" id="rightCol">
+        <h3>🖼️ Pictures</h3>
+      </div>
+    </div>
+  </div>
+
+  <div id="completeSection" style="display:none;">
+    <div class="frost-card complete-section">
+      <div class="big-emoji">🎨</div>
+      <h2>Perfect Match!</h2>
+      <p id="resultDisplay" style="font-size:1.2rem;color:var(--text-light);"></p>
+      <div style="margin-top:20px;">
+        <button class="ice-btn gold" onclick="goToNext()">⭐ Continue to Boss Stage!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../data/words.js"></script>
+<script src="../shared/storage.js"></script>
+<script src="../shared/tts.js"></script>
+<script src="../shared/emoji-helper.js"></script>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const unitId = params.get('unit') || '1';
+const lessonId = params.get('lesson') || '1';
+const lessonData = WORD_DATA[unitId].lessons[lessonId];
+let allWords = lessonData.words || [];
+if (lessonId === 'review' || allWords.length === 0) {
+  const seen = new Set();
+  allWords = [];
+  for (const [lid, ldata] of Object.entries(WORD_DATA[unitId].lessons)) {
+    if (lid !== 'review' && ldata.words) {
+      ldata.words.forEach(w => {
+        if (!seen.has(w.en.toLowerCase())) { seen.add(w.en.toLowerCase()); allWords.push(w); }
+      });
+    }
+  }
+}
+
+// Use ALL words for matching
+const matchWords = shuffleArray([...allWords]);
+
+let leftItems = [];   // Word side
+let rightItems = [];  // Picture side
+let selectedSide = null; // 'left' or 'right'
+let selectedIndex = -1;
+let matchedPairs = [];
+let modeReversed = false; // false = left words, right pictures
+
+function shuffleArray(arr) { const a = [...arr]; for (let i = a.length-1; i>0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function buildStageNav() {
+  const nav = document.getElementById('stageNav');
+  const stages = [
+    { id: 'story', name: '1. Story', file: '1-story.html' },
+    { id: 'listen', name: '2. Listen', file: '2-listen.html' },
+    { id: 'wordsearch', name: '3. Search', file: '3-wordsearch.html' },
+    { id: 'match', name: '4. Match', file: '4-match.html' },
+    { id: 'boss', name: '5. Boss', file: '5-boss.html' }
+  ];
+  const prog = Storage.getProgress(unitId, lessonId);
+  nav.innerHTML = stages.map(s => {
+    let cls = '';
+    if (s.id === 'match') cls = 'active';
+    if (prog[s.id] !== undefined) cls = 'done';
+    return `<a href="${s.file}?unit=${unitId}&lesson=${lessonId}" class="${cls}">${s.name}</a>`;
+  }).join('');
+}
+
+function toggleMode() {
+  modeReversed = !modeReversed;
+  document.getElementById('modeLabel').textContent = modeReversed ? 'Mode: Picture → Word' : 'Mode: Word → Picture';
+  selectedSide = null;
+  selectedIndex = -1;
+  // Swap left/right
+  shuffleAll();
+}
+
+function shuffleAll() {
+  leftItems = shuffleArray(matchWords.map(w => ({ word: w.en, emoji: w.emoji, id: w.en })));
+  rightItems = shuffleArray(matchWords.map(w => ({ word: w.en, emoji: w.emoji, id: w.en })));
+  // If reversed, swap content
+  renderMatchArea();
+}
+
+function renderMatchArea() {
+  const leftCol = document.getElementById('leftCol');
+  const rightCol = document.getElementById('rightCol');
+  const connectors = document.getElementById('matchConnectors');
+
+  // Left: words or pictures depending on mode
+  const leftContent = modeReversed ? rightItems : leftItems;
+  const rightContent = modeReversed ? leftItems : rightItems;
+
+  leftCol.innerHTML = '<h3>' + (modeReversed ? '🖼️ Pictures' : '📝 Words') + '</h3>' +
+    leftContent.map((item, i) => {
+      const matched = matchedPairs.some(p => p.word === item.word);
+      const sel = selectedSide === 'left' && selectedIndex === i;
+      return `
+        <div class="match-card ${matched ? 'matched' : ''} ${sel ? 'selected' : ''}"
+             onclick="selectCard('left', ${i})" data-id="${item.word}">
+          ${modeReversed
+            ? `<span class="match-emoji">${emojiHTML(item.emoji)}</span>`
+            : `<span class="match-word">${item.word}</span>`
+          }
+        </div>`;
+    }).join('');
+
+  rightCol.innerHTML = '<h3>' + (modeReversed ? '📝 Words' : '🖼️ Pictures') + '</h3>' +
+    rightContent.map((item, i) => {
+      const matched = matchedPairs.some(p => p.word === item.word);
+      const sel = selectedSide === 'right' && selectedIndex === i;
+      return `
+        <div class="match-card ${matched ? 'matched' : ''} ${sel ? 'selected' : ''}"
+             onclick="selectCard('right', ${i})" data-id="${item.word}">
+          ${modeReversed
+            ? `<span class="match-word">${item.word}</span>`
+            : `<span class="match-emoji">${emojiHTML(item.emoji)}</span>`
+          }
+        </div>`;
+    }).join('');
+
+  // Connectors
+  connectors.innerHTML = matchWords.map((w, i) => {
+    const matched = matchedPairs.some(p => p.word === w.en);
+    return `<div class="match-connector ${matched ? 'connected' : ''}">➜</div>`;
+  }).join('');
+
+  // Update counts
+  document.getElementById('matchScore').textContent = matchedPairs.length;
+  document.getElementById('matchTotal').textContent = matchWords.length;
+  document.getElementById('progressFill').style.width = ((matchedPairs.length / matchWords.length) * 100) + '%';
+}
+
+function selectCard(side, index) {
+  // Determine which content array corresponds
+  const sideContent = side === 'left' ? (modeReversed ? rightItems : leftItems) : (modeReversed ? leftItems : rightItems);
+  const otherContent = side === 'left' ? (modeReversed ? leftItems : rightItems) : (modeReversed ? rightItems : leftItems);
+
+  const item = sideContent[index];
+  if (matchedPairs.some(p => p.word === item.word)) return; // Already matched
+
+  if (selectedSide === null) {
+    // First selection
+    selectedSide = side;
+    selectedIndex = index;
+    renderMatchArea();
+    // Speak the word if clicking on word side
+    if ((side === 'left' && !modeReversed) || (side === 'right' && modeReversed)) {
+      TTS.speakWord(item.word);
+    }
+  } else if (selectedSide === side) {
+    // Clicking same side — switch selection
+    selectedIndex = index;
+    renderMatchArea();
+    if ((side === 'left' && !modeReversed) || (side === 'right' && modeReversed)) {
+      TTS.speakWord(item.word);
+    }
+  } else {
+    // Second side selected — check match
+    const firstContent = selectedSide === 'left' ? (modeReversed ? rightItems : leftItems) : (modeReversed ? leftItems : rightItems);
+    const firstItem = firstContent[selectedIndex];
+
+    if (firstItem.word === item.word) {
+      // Correct match!
+      matchedPairs.push({ word: item.word });
+      selectedSide = null;
+      selectedIndex = -1;
+      renderMatchArea();
+      TTS.speak('Perfect!');
+
+      // Check if all matched
+      if (matchedPairs.length === matchWords.length) {
+        setTimeout(showComplete, 600);
+      }
+    } else {
+      // Wrong match
+      const leftIdx = selectedSide === 'left' ? selectedIndex : index;
+      const rightIdx = selectedSide === 'right' ? selectedIndex : index;
+
+      // Flash both cards red
+      const leftCard = document.querySelector(`#leftCol .match-card:nth-child(${leftIdx + 2})`);
+      const rightCard = document.querySelector(`#rightCol .match-card:nth-child(${rightIdx + 2})`);
+      if (leftCard) leftCard.classList.add('wrong-flash');
+      if (rightCard) rightCard.classList.add('wrong-flash');
+
+      TTS.speak('Try again!');
+
+      setTimeout(() => {
+        if (leftCard) leftCard.classList.remove('wrong-flash');
+        if (rightCard) rightCard.classList.remove('wrong-flash');
+        selectedSide = null;
+        selectedIndex = -1;
+        renderMatchArea();
+      }, 500);
+    }
+  }
+}
+
+function showComplete() {
+  document.getElementById('gameArea').style.display = 'none';
+  document.getElementById('completeSection').style.display = 'block';
+
+  const maxStars = STAGE_STARS.match;
+  document.getElementById('resultDisplay').textContent = '⭐'.repeat(maxStars) + ' All ' + matchWords.length + ' pairs matched!';
+
+  Storage.completeStage(unitId, lessonId, 'match', maxStars);
+  buildStageNav();
+
+  const el = document.createElement('div');
+  el.textContent = '⭐'.repeat(maxStars);
+  el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3rem;z-index:2000;pointer-events:none;animation:starUp 1.5s ease-out forwards;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+function goToNext() {
+  window.location.href = `5-boss.html?unit=${unitId}&lesson=${lessonId}`;
+}
+
+// Init
+buildStageNav();
+shuffleAll();
+</script>
+
+</body>
+</html>
