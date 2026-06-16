@@ -291,11 +291,6 @@
 
 <script>
 // ========================================
-<<<<<<< HEAD
-// Login check — skip for debugging
-// ========================================
-const SKIP_LOGIN = true;
-=======
 // Login check
 // ========================================
 (function() {
@@ -313,7 +308,6 @@ const SKIP_LOGIN = true;
     return;
   }
 })();
->>>>>>> 5cb36043183cd7e51c05900e5e5d95ab3cbd5e2f
 
 // ========================================
 // Init
@@ -321,19 +315,16 @@ const SKIP_LOGIN = true;
 const state = Storage.load();
 
 function init() {
-<<<<<<< HEAD
   try {
-    var nUnits = typeof WORD_DATA !== 'undefined' ? Object.keys(WORD_DATA).length : 'WORD_DATA undefined!';
-    document.getElementById('elsaFigure').textContent = '👸 v' + nUnits;
     updateStarDisplay();
     renderUnits();
+    var grid = document.getElementById('unitGrid');
+    if (!grid.innerHTML.trim()) {
+      grid.innerHTML = '<div class="frost-card" style="margin:20px;padding:20px;"><p>WORD_DATA: ' + (typeof WORD_DATA !== 'undefined' ? Object.keys(WORD_DATA).join(',') : 'UNDEFINED') + '</p></div>';
+    }
   } catch(e) {
-    document.getElementById('unitGrid').innerHTML = '<div class="frost-card" style="margin:20px;padding:20px;background:#FFEBEE;border:3px solid #F44336;"><h2>❌ Error</h2><p>' + e.message + '</p></div>';
+    document.getElementById('unitGrid').innerHTML = '<div class="frost-card" style="margin:20px;padding:20px;background:#FFEBEE;border:3px solid #F44336;"><h2>Error</h2><p>' + e.message + '</p></div>';
   }
-=======
-  updateStarDisplay();
-  renderUnits();
->>>>>>> 5cb36043183cd7e51c05900e5e5d95ab3cbd5e2f
 }
 
 function logout() {
